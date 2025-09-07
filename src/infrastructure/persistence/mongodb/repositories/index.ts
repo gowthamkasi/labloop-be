@@ -6,10 +6,10 @@
 export { BaseRepository } from './BaseRepository.js';
 export { UserRepository } from './UserRepository.js';
 export { PatientRepository } from './PatientRepository.js';
+export { HospitalRepository } from './HospitalRepository.js';
+export { LabRepository } from './LabRepository.js';
 
 // Additional repositories will be exported as they are implemented
-// export { HospitalRepository } from './HospitalRepository.js';
-// export { LabRepository } from './LabRepository.js';
 // export { TestRepository } from './TestRepository.js';
 // export { CaseRepository } from './CaseRepository.js';
 // export { SampleRepository } from './SampleRepository.js';
