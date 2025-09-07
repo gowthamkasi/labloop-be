@@ -1,0 +1,2926 @@
+openapi: 3.0.3
+info:
+  title: LabLoop Lab Management System API
+  description: |
+    Comprehensive API documentation for LabLoop - a B2B lab management system for healthcare providers.
+    
+    ## Overview
+    This API provides endpoints for:
+    - Lab and hospital management
+    - Patient registration and case management
+    - Sample collection and tracking
+    - Test management and report generation
+    - Billing and invoicing
+    - Mobile app integration for field agents
+    - Integration with Super One health analysis platform
+    
+    ## Authentication
+    - **Web Application**: Session-based authentication using NextAuth.js
+    - **Mobile Applications**: JWT Bearer token authentication
+    - **Admin Endpoints**: API key authentication
+    
+    ## API Versioning
+    All endpoints are currently at version 1.0. Future versions will be indicated in the path.
+    
+    ## Rate Limiting
+    - Standard endpoints: 100 requests per minute
+    - Authentication endpoints: 5 attempts per 15 minutes
+    - Bulk operations: 10 requests per minute
+    
+  version: 1.0.0
+  contact:
+    name: LabLoop Support
+    email: support@labloop.com
+  license:
+    name: Proprietary
+    
+servers:
+  - url: http://localhost:3000/api
+    description: Development server
+  - url: https://api.labloop.com/api
+    description: Production server
+  - url: https://staging-api.labloop.com/api
+    description: Staging server
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: Patients
+    description: Patient registration and management
+  - name: Cases
+    description: Medical case management and workflow
+  - name: Samples
+    description: Laboratory sample collection and tracking
+  - name: Tests
+    description: Laboratory test catalog and management
+  - name: Reports
+    description: Medical report generation and management
+  - name: Labs
+    description: Laboratory facility management
+  - name: Hospitals
+    description: Hospital and healthcare facility management
+  - name: Invoices
+    description: Billing and invoice management
+  - name: Mobile Auth
+    description: Mobile app authentication
+  - name: Mobile Tests
+    description: Mobile app test catalog
+  - name: Mobile Appointments
+    description: Mobile app appointment booking
+  - name: Mobile Dashboard
+    description: Mobile app dashboard and analytics
+  - name: Appointments
+    description: Appointment scheduling and management
+  - name: Schedules
+    description: Schedule and timeslot management
+  - name: Admin
+    description: Administrative operations
+  - name: Webhooks
+    description: Webhook integrations
+
+components:
+  securitySchemes:
+    SessionAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+      description: NextAuth.js session cookie
+      
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for mobile app authentication
+      
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for admin operations
+      
+  schemas:
+    # Common Schemas
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 100
+        page:
+          type: integer
+          example: 1
+        totalPages:
+          type: integer
+          example: 10
+        hasNext:
+          type: boolean
+          example: true
+        hasPrev:
+          type: boolean
+          example: false
+          
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          example: "An error occurred"
+        details:
+          type: string
+          example: "Detailed error message"
+        code:
+          type: string
+          example: "ERROR_CODE"
+          
+    SuccessResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+        message:
+          type: string
+          
+    # User Schemas
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: objectId
+          example: "507f1f77bcf86cd799439011"
+        username:
+          type: string
+          example: "john.doe"
+        email:
+          type: string
+          format: email
+          example: "john.doe@example.com"
+        role:
+          type: string
+          enum: [admin, lab_admin, lab_technician, collector, viewer]
+          example: "lab_technician"
+        isActive:
+          type: boolean
+          example: true
+        lastLogin:
+          type: string
+          format: date-time
+        profile:
+          $ref: '#/components/schemas/UserProfile'
+        labId:
+          type: string
+          format: objectId
+        labName:
+          type: string
+          
+    UserProfile:
+      type: object
+      properties:
+        firstName:
+          type: string
+          example: "John"
+        lastName:
+          type: string
+          example: "Doe"
+        phone:
+          type: string
+          example: "+919876543210"
+        dateOfBirth:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [male, female, other]
+        address:
+          $ref: '#/components/schemas/Address'
+          
+    Address:
+      type: object
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zipCode:
+          type: string
+        country:
+          type: string
+          default: "India"
+          
+    # Patient Schemas
+    Patient:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - mobileNumber
+        - age
+        - gender
+      properties:
+        _id:
+          type: string
+          format: objectId
+        patientId:
+          type: string
+          example: "PAT00001"
+        firstName:
+          type: string
+          example: "Jane"
+        lastName:
+          type: string
+          example: "Smith"
+        mobileNumber:
+          type: string
+          example: "+919876543210"
+        age:
+          type: integer
+          minimum: 0
+          maximum: 150
+          example: 35
+        gender:
+          type: string
+          enum: [male, female, other]
+        dateOfBirth:
+          type: string
+          format: date
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        emergencyContact:
+          type: string
+        medicalHistory:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, pending]
+          default: active
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          
+    # Case Schemas
+    Case:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: objectId
+        caseId:
+          type: string
+          example: "CASE00001"
+        patientId:
+          type: string
+          format: objectId
+        doctorId:
+          type: string
+          format: objectId
+        hospitalId:
+          type: string
+          format: objectId
+        collectionAgentId:
+          type: string
+          format: objectId
+        collectionCenterId:
+          type: string
+          format: objectId
+        status:
+          type: string
+          enum: [pending, in_progress, completed, cancelled]
+          default: pending
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          default: medium
+        dueDate:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        externalCaseId:
+          type: string
+        samples:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sample'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          
+    # Sample Schemas
+    Sample:
+      type: object
+      required:
+        - sampleId
+        - patientId
+        - type
+        - sampleType
+      properties:
+        _id:
+          type: string
+          format: objectId
+        sampleId:
+          type: string
+          example: "SMP00001"
+        patientId:
+          type: string
+          format: objectId
+        caseId:
+          type: string
+          format: objectId
+        testId:
+          type: string
+          format: objectId
+        type:
+          type: string
+          enum: [blood, urine, stool, sputum, swab, other]
+          default: blood
+        sampleType:
+          type: string
+          example: "Serum"
+        collectedBy:
+          type: string
+        collectionDate:
+          type: string
+          format: date
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          default: medium
+        status:
+          type: string
+          enum: [collected, in_transit, received, processing, completed, rejected]
+          default: collected
+        volume:
+          type: number
+          example: 5.0
+        unit:
+          type: string
+          example: "ml"
+        storageCondition:
+          type: string
+          example: "2-8°C"
+        notes:
+          type: string
+          
+    # Test Schemas
+    Test:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: objectId
+        testId:
+          type: string
+          example: "TST00001"
+        labId:
+          type: string
+          format: objectId
+        name:
+          type: string
+          example: "Complete Blood Count"
+        shortName:
+          type: string
+          example: "CBC"
+        category:
+          type: string
+          enum: [hematology, biochemistry, microbiology, immunology, molecular, pathology, radiology]
+        description:
+          type: string
+        price:
+          type: number
+          example: 500
+        originalPrice:
+          type: number
+          example: 600
+        currency:
+          type: string
+          default: "INR"
+        duration:
+          type: string
+          example: "24 hours"
+        fastingRequired:
+          type: boolean
+          default: false
+        fastingDuration:
+          type: string
+          example: "8-12 hours"
+        sampleType:
+          type: string
+          example: "Blood"
+        sampleVolume:
+          type: string
+          example: "3 ml"
+        instructions:
+          type: string
+        parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestParameter'
+        isActive:
+          type: boolean
+          default: true
+        isFeatured:
+          type: boolean
+          default: false
+        tags:
+          type: array
+          items:
+            type: string
+            
+    TestParameter:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Hemoglobin"
+        unit:
+          type: string
+          example: "g/dL"
+        normalRange:
+          type: string
+          example: "12-16"
+        referenceRange:
+          type: object
+          properties:
+            male:
+              type: string
+              example: "13-17"
+            female:
+              type: string
+              example: "12-16"
+            child:
+              type: string
+              example: "11-14"
+              
+    # Report Schemas
+    Report:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: objectId
+        reportId:
+          type: string
+          example: "RPT00001"
+        caseId:
+          type: string
+          format: objectId
+        patientId:
+          type: string
+          format: objectId
+        samples:
+          type: array
+          items:
+            type: string
+            format: objectId
+        tests:
+          type: array
+          items:
+            type: string
+            format: objectId
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestResult'
+        status:
+          type: string
+          enum: [draft, pending_review, reviewed, finalized, delivered]
+          default: draft
+        interpretations:
+          type: string
+        recommendations:
+          type: string
+        generatedBy:
+          type: string
+          format: objectId
+        reviewedBy:
+          type: string
+          format: objectId
+        finalizedBy:
+          type: string
+          format: objectId
+        generatedAt:
+          type: string
+          format: date-time
+        reviewedAt:
+          type: string
+          format: date-time
+        finalizedAt:
+          type: string
+          format: date-time
+        deliveredAt:
+          type: string
+          format: date-time
+        pdfUrl:
+          type: string
+          format: uri
+          
+    TestResult:
+      type: object
+      properties:
+        testId:
+          type: string
+          format: objectId
+        testName:
+          type: string
+        parameters:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              value:
+                type: string
+              unit:
+                type: string
+              normalRange:
+                type: string
+              status:
+                type: string
+                enum: [normal, low, high, critical]
+              
+    # Lab Schemas
+    Lab:
+      type: object
+      required:
+        - name
+        - type
+        - licenseNumber
+      properties:
+        _id:
+          type: string
+          format: objectId
+        labId:
+          type: string
+          example: "LAB00001"
+        name:
+          type: string
+          example: "Central Diagnostics Lab"
+        type:
+          type: string
+          enum: [independent, hospital-attached]
+        hospitalId:
+          type: string
+          format: objectId
+        address:
+          $ref: '#/components/schemas/Address'
+        contact:
+          type: object
+          properties:
+            phone:
+              type: string
+            email:
+              type: string
+              format: email
+            website:
+              type: string
+              format: uri
+            emergencyContact:
+              type: string
+        licenseNumber:
+          type: string
+        establishedDate:
+          type: string
+          format: date
+        services:
+          type: array
+          items:
+            type: string
+        testTypes:
+          type: array
+          items:
+            type: string
+        operatingHours:
+          type: object
+          properties:
+            monday:
+              type: string
+              example: "08:00-20:00"
+            tuesday:
+              type: string
+            wednesday:
+              type: string
+            thursday:
+              type: string
+            friday:
+              type: string
+            saturday:
+              type: string
+            sunday:
+              type: string
+        isActive:
+          type: boolean
+          default: true
+        isVerified:
+          type: boolean
+          default: false
+        verificationDate:
+          type: string
+          format: date-time
+        rating:
+          type: number
+          minimum: 0
+          maximum: 5
+        totalReviews:
+          type: integer
+          
+    # Hospital Schemas
+    Hospital:
+      type: object
+      required:
+        - name
+        - hospitalId
+      properties:
+        _id:
+          type: string
+          format: objectId
+        hospitalId:
+          type: string
+          example: "HOSP00001"
+        name:
+          type: string
+          example: "City General Hospital"
+        type:
+          type: string
+          enum: [government, private, trust, clinic]
+        address:
+          $ref: '#/components/schemas/Address'
+        contact:
+          type: object
+          properties:
+            phone:
+              type: string
+            email:
+              type: string
+              format: email
+            website:
+              type: string
+              format: uri
+        departments:
+          type: array
+          items:
+            type: string
+        beds:
+          type: integer
+        labs:
+          type: array
+          items:
+            type: string
+            format: objectId
+        isActive:
+          type: boolean
+          default: true
+          
+    # Invoice Schemas
+    Invoice:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: objectId
+        invoiceNumber:
+          type: string
+          example: "INV-2024-00001"
+        caseId:
+          type: string
+          format: objectId
+        patientId:
+          type: string
+          format: objectId
+        hospitalId:
+          type: string
+          format: objectId
+        doctorId:
+          type: string
+          format: objectId
+        billingType:
+          type: string
+          enum: [case, test, service, consultation]
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvoiceItem'
+        subtotal:
+          type: number
+          example: 1500
+        tax:
+          type: number
+          example: 270
+        discount:
+          type: number
+          example: 150
+        total:
+          type: number
+          example: 1620
+        currency:
+          type: string
+          default: "INR"
+        status:
+          type: string
+          enum: [draft, pending, sent, paid, partial, overdue, cancelled]
+          default: draft
+        paymentMethod:
+          type: string
+          enum: [cash, card, upi, netbanking, insurance, credit]
+        paymentDate:
+          type: string
+          format: date-time
+        dueDate:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          
+    InvoiceItem:
+      type: object
+      properties:
+        itemType:
+          type: string
+          enum: [test, service, consultation, other]
+        itemId:
+          type: string
+          format: objectId
+        description:
+          type: string
+        quantity:
+          type: integer
+          default: 1
+        unitPrice:
+          type: number
+        total:
+          type: number
+        tax:
+          type: number
+        discount:
+          type: number
+          
+    # Mobile-specific Schemas
+    MobileLoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        deviceId:
+          type: string
+        deviceName:
+          type: string
+        platform:
+          type: string
+          enum: [ios, android]
+        version:
+          type: string
+        model:
+          type: string
+        fcmToken:
+          type: string
+        biometricEnabled:
+          type: boolean
+          
+    MobileAuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/MobileUser'
+            tokens:
+              type: object
+              properties:
+                accessToken:
+                  type: string
+                refreshToken:
+                  type: string
+                expiresIn:
+                  type: integer
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+          
+    MobileUser:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+        profile:
+          type: object
+          properties:
+            firstName:
+              type: string
+            lastName:
+              type: string
+            phone:
+              type: string
+            avatar:
+              type: string
+              format: uri
+        healthProfile:
+          type: object
+          properties:
+            height:
+              type: number
+            weight:
+              type: number
+            bloodGroup:
+              type: string
+            allergies:
+              type: array
+              items:
+                type: string
+            medications:
+              type: array
+              items:
+                type: string
+                
+    MobileTest:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        short_name:
+          type: string
+        icon:
+          type: string
+        category:
+          type: string
+        duration:
+          type: string
+        price:
+          type: string
+        original_price:
+          type: string
+        fasting:
+          type: object
+          properties:
+            required:
+              type: string
+            display_text:
+              type: string
+            instructions:
+              type: string
+        sample_type:
+          type: object
+          properties:
+            type:
+              type: string
+            display_name:
+              type: string
+            icon:
+              type: string
+        report_time:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        is_featured:
+          type: boolean
+        is_available:
+          type: boolean
+        category_color:
+          type: string
+          
+    Appointment:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: objectId
+        appointmentId:
+          type: string
+        patientId:
+          type: string
+          format: objectId
+        labId:
+          type: string
+          format: objectId
+        testIds:
+          type: array
+          items:
+            type: string
+            format: objectId
+        scheduledDate:
+          type: string
+          format: date
+        scheduledTime:
+          type: string
+        status:
+          type: string
+          enum: [scheduled, confirmed, in_progress, completed, cancelled, rescheduled, no_show]
+        collectorId:
+          type: string
+          format: objectId
+        collectionType:
+          type: string
+          enum: [home, lab, collection_center]
+        address:
+          $ref: '#/components/schemas/Address'
+        notes:
+          type: string
+        totalAmount:
+          type: number
+        paymentStatus:
+          type: string
+          enum: [pending, paid, partial, refunded]
+          
+paths:
+  # Authentication Endpoints
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user with email and password
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Logout current user and clear session
+      operationId: logout
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logged out successfully"
+                    
+  /auth/verify:
+    get:
+      tags:
+        - Authentication
+      summary: Verify session
+      description: Check if user session is valid
+      operationId: verifySession
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Session valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authenticated:
+                    type: boolean
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Session invalid or expired
+          
+  # Patient Management Endpoints
+  /patients:
+    get:
+      tags:
+        - Patients
+      summary: Get patients list
+      description: Retrieve paginated list of patients with optional filtering
+      operationId: getPatients
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, pending]
+        - name: id
+          in: query
+          description: Get specific patient by ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Patients retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Patient'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                    
+    post:
+      tags:
+        - Patients
+      summary: Create new patient
+      description: Register a new patient in the system
+      operationId: createPatient
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Patient'
+      responses:
+        '201':
+          description: Patient created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Patient'
+                  message:
+                    type: string
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+    patch:
+      tags:
+        - Patients
+      summary: Update patient
+      description: Update existing patient information
+      operationId: updatePatient
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required:
+                    - _id
+                  properties:
+                    _id:
+                      type: string
+                - $ref: '#/components/schemas/Patient'
+      responses:
+        '200':
+          description: Patient updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Patient'
+                  message:
+                    type: string
+                    
+  # Case Management Endpoints
+  /cases:
+    get:
+      tags:
+        - Cases
+      summary: Get cases list
+      description: Retrieve paginated list of cases with population of related entities
+      operationId: getCases
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Cases retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Case'
+                  success:
+                    type: boolean
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                    
+    post:
+      tags:
+        - Cases
+      summary: Create new case
+      description: Create a new medical case with samples
+      operationId: createCase
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                patient:
+                  $ref: '#/components/schemas/Patient'
+                priority:
+                  type: string
+                  enum: [low, medium, high, urgent]
+                doctorId:
+                  type: string
+                hospitalId:
+                  type: string
+                collectionAgentId:
+                  type: string
+                collectionCenterId:
+                  type: string
+                notes:
+                  type: string
+                externalCaseId:
+                  type: string
+                samples:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      testType:
+                        type: string
+                      sampleType:
+                        type: string
+                      sampleId:
+                        type: string
+                      type:
+                        type: string
+                      collectionDate:
+                        type: string
+                        format: date
+      responses:
+        '200':
+          description: Case created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      case:
+                        $ref: '#/components/schemas/Case'
+                      samples:
+                        type: object
+                        properties:
+                          success:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Sample'
+                          failed:
+                            type: array
+                            items:
+                              type: object
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                      
+    patch:
+      tags:
+        - Cases
+      summary: Update case
+      description: Update existing case information and samples
+      operationId: updateCase
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required:
+                    - _id
+                  properties:
+                    _id:
+                      type: string
+                - $ref: '#/components/schemas/Case'
+      responses:
+        '200':
+          description: Case updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Case'
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    
+    delete:
+      tags:
+        - Cases
+      summary: Delete case
+      description: Delete a case by ID
+      operationId: deleteCase
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Case deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Case'
+                  success:
+                    type: boolean
+                    
+  /cases/{id}:
+    get:
+      tags:
+        - Cases
+      summary: Get case by ID
+      description: Retrieve detailed information about a specific case
+      operationId: getCaseById
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Case retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Case'
+                  success:
+                    type: boolean
+                    
+    patch:
+      tags:
+        - Cases
+      summary: Update case by ID
+      description: Update specific case information
+      operationId: updateCaseById
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Case'
+      responses:
+        '200':
+          description: Case updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Case'
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    
+    delete:
+      tags:
+        - Cases
+      summary: Delete case by ID
+      description: Delete a specific case
+      operationId: deleteCaseById
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Case deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    
+  # Sample Management Endpoints
+  /samples:
+    get:
+      tags:
+        - Samples
+      summary: Get samples list
+      description: Retrieve paginated list of laboratory samples
+      operationId: getSamples
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [collected, in_transit, received, processing, completed, rejected]
+        - name: caseId
+          in: query
+          schema:
+            type: string
+        - name: patientId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Samples retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Sample'
+                  success:
+                    type: boolean
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                    
+    post:
+      tags:
+        - Samples
+      summary: Create new sample
+      description: Register a new laboratory sample
+      operationId: createSample
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sample'
+      responses:
+        '201':
+          description: Sample created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Sample'
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    
+  /samples/{id}:
+    get:
+      tags:
+        - Samples
+      summary: Get sample by ID
+      description: Retrieve detailed information about a specific sample
+      operationId: getSampleById
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sample retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Sample'
+                  success:
+                    type: boolean
+                    
+    patch:
+      tags:
+        - Samples
+      summary: Update sample
+      description: Update sample information
+      operationId: updateSample
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sample'
+      responses:
+        '200':
+          description: Sample updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Sample'
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    
+    delete:
+      tags:
+        - Samples
+      summary: Delete sample
+      description: Delete a specific sample
+      operationId: deleteSample
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sample deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    
+  /samples/types:
+    get:
+      tags:
+        - Samples
+      summary: Get sample types
+      description: Retrieve list of available sample types
+      operationId: getSampleTypes
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Sample types retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: string
+                  success:
+                    type: boolean
+                    
+  # Test Management Endpoints
+  /tests:
+    get:
+      tags:
+        - Tests
+      summary: Get tests list
+      description: Retrieve paginated list of laboratory tests
+      operationId: getTests
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: labId
+          in: query
+          schema:
+            type: string
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: isFeatured
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Tests retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Test'
+                  success:
+                    type: boolean
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                    
+    post:
+      tags:
+        - Tests
+      summary: Create new test
+      description: Add a new laboratory test to the catalog
+      operationId: createTest
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Test'
+      responses:
+        '201':
+          description: Test created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Test'
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    
+  /tests/{testId}:
+    get:
+      tags:
+        - Tests
+      summary: Get test by ID
+      description: Retrieve detailed information about a specific test
+      operationId: getTestById
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: testId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Test retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Test'
+                  success:
+                    type: boolean
+                    
+    patch:
+      tags:
+        - Tests
+      summary: Update test
+      description: Update test information
+      operationId: updateTest
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: testId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Test'
+      responses:
+        '200':
+          description: Test updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Test'
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    
+    delete:
+      tags:
+        - Tests
+      summary: Delete test
+      description: Remove a test from the catalog
+      operationId: deleteTest
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: testId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Test deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    
+  /tests/categories:
+    get:
+      tags:
+        - Tests
+      summary: Get test categories
+      description: Retrieve list of available test categories
+      operationId: getTestCategories
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: string
+                  success:
+                    type: boolean
+                    
+  # Report Management Endpoints
+  /reports:
+    get:
+      tags:
+        - Reports
+      summary: Get reports list
+      description: Retrieve paginated list of medical reports
+      operationId: getReports
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, pending_review, reviewed, finalized, delivered]
+        - name: patientId
+          in: query
+          schema:
+            type: string
+        - name: caseId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Reports retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Report'
+                  success:
+                    type: boolean
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                    
+    post:
+      tags:
+        - Reports
+      summary: Create new report
+      description: Generate a new medical report
+      operationId: createReport
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Report'
+      responses:
+        '201':
+          description: Report created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Report'
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    
+  /reports/{id}:
+    get:
+      tags:
+        - Reports
+      summary: Get report by ID
+      description: Retrieve detailed report information
+      operationId: getReportById
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Report retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Report'
+                  success:
+                    type: boolean
+                    
+    patch:
+      tags:
+        - Reports
+      summary: Update report
+      description: Update report information
+      operationId: updateReport
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Report'
+      responses:
+        '200':
+          description: Report updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Report'
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    
+    delete:
+      tags:
+        - Reports
+      summary: Delete report
+      description: Delete a specific report
+      operationId: deleteReport
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Report deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    
+  # Lab Management Endpoints
+  /labs:
+    get:
+      tags:
+        - Labs
+      summary: Get labs list
+      description: Retrieve paginated list of laboratory facilities
+      operationId: getLabs
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [independent, hospital-attached]
+        - name: city
+          in: query
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: isVerified
+          in: query
+          schema:
+            type: boolean
+        - name: services
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of services
+      responses:
+        '200':
+          description: Labs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Lab'
+                      total:
+                        type: integer
+                      page:
+                        type: integer
+                      totalPages:
+                        type: integer
+                        
+    post:
+      tags:
+        - Labs
+      summary: Create new lab
+      description: Register a new laboratory facility
+      operationId: createLab
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Lab'
+      responses:
+        '201':
+          description: Lab created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Lab'
+                  message:
+                    type: string
+                    
+  # Hospital Management Endpoints
+  /hospitals:
+    get:
+      tags:
+        - Hospitals
+      summary: Get hospitals list
+      description: Retrieve paginated list of hospitals
+      operationId: getHospitals
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [government, private, trust, clinic]
+        - name: city
+          in: query
+          schema:
+            type: string
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Hospitals retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Hospital'
+                  success:
+                    type: boolean
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                    
+    post:
+      tags:
+        - Hospitals
+      summary: Create new hospital
+      description: Register a new hospital or healthcare facility
+      operationId: createHospital
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Hospital'
+      responses:
+        '201':
+          description: Hospital created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Hospital'
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    
+  # Invoice Management Endpoints
+  /invoices:
+    get:
+      tags:
+        - Invoices
+      summary: Get invoices list
+      description: Retrieve paginated list of invoices with filtering
+      operationId: getInvoices
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of statuses
+        - name: patientId
+          in: query
+          schema:
+            type: string
+        - name: doctorId
+          in: query
+          schema:
+            type: string
+        - name: hospitalId
+          in: query
+          schema:
+            type: string
+        - name: billingType
+          in: query
+          schema:
+            type: string
+            enum: [case, test, service, consultation]
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: minAmount
+          in: query
+          schema:
+            type: number
+        - name: maxAmount
+          in: query
+          schema:
+            type: number
+      responses:
+        '200':
+          description: Invoices retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Invoice'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                    
+    post:
+      tags:
+        - Invoices
+      summary: Create new invoice
+      description: Generate a new invoice
+      operationId: createInvoice
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+      responses:
+        '201':
+          description: Invoice created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Invoice'
+                  message:
+                    type: string
+                    
+  /invoices/{id}:
+    get:
+      tags:
+        - Invoices
+      summary: Get invoice by ID
+      description: Retrieve detailed invoice information
+      operationId: getInvoiceById
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Invoice retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Invoice'
+                    
+    patch:
+      tags:
+        - Invoices
+      summary: Update invoice
+      description: Update invoice information
+      operationId: updateInvoice
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+      responses:
+        '200':
+          description: Invoice updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Invoice'
+                  message:
+                    type: string
+                    
+  # Mobile Authentication Endpoints
+  /mobile/auth/login:
+    post:
+      tags:
+        - Mobile Auth
+      summary: Mobile app login
+      description: Authenticate mobile app user and receive JWT tokens
+      operationId: mobileLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobileLoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileAuthResponse'
+        '401':
+          description: Invalid credentials
+        '429':
+          description: Too many login attempts
+          
+    options:
+      tags:
+        - Mobile Auth
+      summary: CORS preflight
+      description: Handle CORS preflight request
+      operationId: mobileLoginOptions
+      responses:
+        '200':
+          description: CORS headers returned
+          
+  /mobile/auth/logout:
+    post:
+      tags:
+        - Mobile Auth
+      summary: Mobile app logout
+      description: Logout mobile app user and invalidate tokens
+      operationId: mobileLogout
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          
+  /mobile/auth/register:
+    post:
+      tags:
+        - Mobile Auth
+      summary: Mobile app registration
+      description: Register new mobile app user
+      operationId: mobileRegister
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - firstName
+                - lastName
+                - phone
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                phone:
+                  type: string
+                dateOfBirth:
+                  type: string
+                  format: date
+                gender:
+                  type: string
+                  enum: [male, female, other]
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileAuthResponse'
+                
+  /mobile/auth/refresh:
+    post:
+      tags:
+        - Mobile Auth
+      summary: Refresh access token
+      description: Get new access token using refresh token
+      operationId: mobileRefreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  expiresIn:
+                    type: integer
+                    
+  /mobile/auth/profile:
+    get:
+      tags:
+        - Mobile Auth
+      summary: Get user profile
+      description: Get current user profile information
+      operationId: getMobileProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/MobileUser'
+                    
+    patch:
+      tags:
+        - Mobile Auth
+      summary: Update user profile
+      description: Update current user profile information
+      operationId: updateMobileProfile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobileUser'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/MobileUser'
+                  message:
+                    type: string
+                    
+  # Mobile Tests Endpoints
+  /mobile/tests:
+    get:
+      tags:
+        - Mobile Tests
+      summary: Get tests for mobile app
+      description: Retrieve paginated list of tests optimized for mobile display
+      operationId: getMobileTests
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: price_min
+          in: query
+          schema:
+            type: number
+        - name: price_max
+          in: query
+          schema:
+            type: number
+        - name: fasting_required
+          in: query
+          schema:
+            type: boolean
+        - name: sample_type
+          in: query
+          schema:
+            type: string
+        - name: featured
+          in: query
+          schema:
+            type: boolean
+        - name: available
+          in: query
+          schema:
+            type: boolean
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [name, price, duration, popularity]
+        - name: sort_order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+      responses:
+        '200':
+          description: Tests retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      tests:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MobileTest'
+                  pagination:
+                    type: object
+                    properties:
+                      total_count:
+                        type: integer
+                  timestamp:
+                    type: string
+                    format: date-time
+                    
+  /mobile/tests/{testId}:
+    get:
+      tags:
+        - Mobile Tests
+      summary: Get test details
+      description: Get detailed information about a specific test
+      operationId: getMobileTestById
+      parameters:
+        - name: testId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Test retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/MobileTest'
+                  timestamp:
+                    type: string
+                    format: date-time
+                    
+  /mobile/tests/{testId}/favorite:
+    post:
+      tags:
+        - Mobile Tests
+      summary: Toggle test favorite
+      description: Add or remove test from user favorites
+      operationId: toggleTestFavorite
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: testId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Favorite toggled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      isFavorite:
+                        type: boolean
+                  message:
+                    type: string
+                    
+  # Mobile Appointments Endpoints
+  /mobile/appointments:
+    get:
+      tags:
+        - Mobile Appointments
+      summary: Get user appointments
+      description: Retrieve list of user appointments
+      operationId: getMobileAppointments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [scheduled, confirmed, completed, cancelled]
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Appointments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Appointment'
+                      
+    post:
+      tags:
+        - Mobile Appointments
+      summary: Book appointment
+      description: Create a new appointment booking
+      operationId: bookMobileAppointment
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Appointment'
+      responses:
+        '201':
+          description: Appointment booked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Appointment'
+                  message:
+                    type: string
+                    
+  # Health Check Endpoint
+  /health:
+    get:
+      tags:
+        - Admin
+      summary: Health check
+      description: Check API health status
+      operationId: healthCheck
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+                    example: "1.0.0"
+                  database:
+                    type: string
+                    example: "connected"
+                    
+  # Webhook Endpoints (for Super One integration)
+  /webhooks/super-one/case-created:
+    post:
+      tags:
+        - Webhooks
+      summary: Case created webhook
+      description: Webhook triggered when a new case is created in LabLoop
+      operationId: webhookCaseCreated
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                trigger:
+                  type: string
+                  example: "case-created"
+                timestamp:
+                  type: string
+                  format: date-time
+                data:
+                  type: object
+                  properties:
+                    case:
+                      $ref: '#/components/schemas/Case'
+                    patient:
+                      $ref: '#/components/schemas/Patient'
+                    tests:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Test'
+                    totalCost:
+                      type: number
+      responses:
+        '200':
+          description: Webhook processed successfully
+        '401':
+          description: Invalid webhook signature
+          
+  /webhooks/super-one/report-finalized:
+    post:
+      tags:
+        - Webhooks
+      summary: Report finalized webhook
+      description: Webhook triggered when a report is finalized
+      operationId: webhookReportFinalized
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                trigger:
+                  type: string
+                  example: "report-finalized"
+                timestamp:
+                  type: string
+                  format: date-time
+                data:
+                  type: object
+                  properties:
+                    report:
+                      $ref: '#/components/schemas/Report'
+                    patient:
+                      $ref: '#/components/schemas/Patient'
+                    results:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/TestResult'
+      responses:
+        '200':
+          description: Webhook processed successfully
+        '401':
+          description: Invalid webhook signature
+          
+  /webhooks/super-one/invoice-generated:
+    post:
+      tags:
+        - Webhooks
+      summary: Invoice generated webhook
+      description: Webhook triggered when an invoice is generated
+      operationId: webhookInvoiceGenerated
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                trigger:
+                  type: string
+                  example: "invoice-generated"
+                timestamp:
+                  type: string
+                  format: date-time
+                data:
+                  type: object
+                  properties:
+                    invoice:
+                      $ref: '#/components/schemas/Invoice'
+                    patient:
+                      $ref: '#/components/schemas/Patient'
+      responses:
+        '200':
+          description: Webhook processed successfully
+        '401':
+          description: Invalid webhook signature

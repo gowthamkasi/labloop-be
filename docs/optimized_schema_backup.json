@@ -1,0 +1,1921 @@
+{
+  "version": "4.0.0",
+  "description": "Healthcare Ecosystem MongoDB Schema - Real-World Healthcare Organization Model",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "compliance": {
+    "hipaa": true,
+    "hl7Fhir": true,
+    "gdpr": true
+  },
+  "optimization": {
+    "strategy": "Separate large arrays into collections, embed small static data",
+    "rationale": "Prevent document growth, improve query performance, enable efficient aggregation",
+    "targetLatency": "<100ms for mobile APIs"
+  },
+  "conventions": {
+    "naming": "camelCase",
+    "timestamps": "automatic",
+    "softDelete": true,
+    "auditLog": true,
+    "referencing": "ObjectId with denormalized critical fields"
+  },
+  "schemas": {
+    "users": {
+      "description": "Unified user model for B2B (lab staff) and B2C (consumer patients) users",
+      "collection": "users",
+      "documentSizeLimit": "16KB typical, 64KB max",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "userId": { "type": "String", "unique": true, "pattern": "^USR[0-9]{6}$", "auto": true },
+        "username": { "type": "String", "unique": true, "required": true, "minLength": 3, "maxLength": 50 },
+        "email": { "type": "String", "unique": true, "required": true, "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" },
+        "passwordHash": { "type": "String", "required": true, "encrypted": true },
+        "userType": { "type": "String", "enum": ["b2b", "b2c"], "required": true },
+        "role": { 
+          "type": "String", 
+          "enum": ["admin", "labManager", "technician", "collectionAgent", "receptionist", "qualityController", "labAssistant", "consumer", "familyManager"],
+          "required": true,
+          "_comment": "Note: 'doctor' role moved to separate doctors collection, 'consumer' manages multiple patients"
+        },
+        "managedPatients": {
+          "description": "For consumer users - array of patient IDs they manage",
+          "type": "[ObjectId]",
+          "ref": "patients",
+          "maxItems": 20,
+          "_comment": "Allows one consumer to manage multiple family members"
+        },
+        "profile": {
+          "description": "Embedded - Small, frequently accessed data",
+          "firstName": { "type": "String", "required": true },
+          "lastName": { "type": "String", "required": true },
+          "dateOfBirth": { "type": "Date", "required": false },
+          "gender": { "type": "String", "enum": ["male", "female", "other"], "required": false },
+          "mobileNumber": { "type": "String", "pattern": "^\\+?[1-9]\\d{1,14}$", "sparse": true },
+          "profilePicture": { "type": "String", "maxLength": 500 },
+          "address": {
+            "street": { "type": "String", "maxLength": 200 },
+            "city": { "type": "String", "maxLength": 100 },
+            "state": { "type": "String", "maxLength": 100 },
+            "zipCode": { "type": "String", "pattern": "^[0-9]{5,10}$" },
+            "country": { "type": "String", "default": "India" },
+            "coordinates": {
+              "type": { "type": "String", "enum": ["Point"], "default": "Point" },
+              "coordinates": { "type": "[Number]", "index": "2dsphere" }
+            }
+          }
+        },
+        "employment": {
+          "description": "Embedded - Small, static employment data",
+          "organizationId": { "type": "ObjectId", "ref": "organizations", "sparse": true },
+          "designation": { "type": "String", "maxLength": 100 },
+          "department": { "type": "String", "maxLength": 100 },
+          "joiningDate": { "type": "Date" },
+          "reportingTo": { "type": "ObjectId", "ref": "users", "sparse": true }
+        },
+        "healthProfile": {
+          "description": "Embedded - Critical health data, frequently accessed",
+          "height": { "type": "Number", "min": 0, "max": 300 },
+          "weight": { "type": "Number", "min": 0, "max": 500 },
+          "bloodGroup": { "type": "String", "enum": ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] },
+          "allergies": { "type": "[String]", "maxItems": 20 },
+          "medications": { "type": "[String]", "maxItems": 20 },
+          "medicalConditions": { "type": "[String]", "maxItems": 20 },
+          "emergencyContact": {
+            "name": { "type": "String" },
+            "phone": { "type": "String" },
+            "relationship": { "type": "String" }
+          }
+        },
+        "permissions": {
+          "description": "Embedded - Small, frequently checked permissions",
+          "canCreateCases": { "type": "Boolean", "default": false },
+          "canEditCases": { "type": "Boolean", "default": false },
+          "canDeleteCases": { "type": "Boolean", "default": false },
+          "canCreateReports": { "type": "Boolean", "default": false },
+          "canApproveReports": { "type": "Boolean", "default": false },
+          "canManageUsers": { "type": "Boolean", "default": false },
+          "canViewAnalytics": { "type": "Boolean", "default": false },
+          "canManageInventory": { "type": "Boolean", "default": false }
+        },
+        "authentication": {
+          "description": "Embedded - Critical auth data",
+          "twoFactorEnabled": { "type": "Boolean", "default": false },
+          "loginAttempts": { "type": "Number", "default": 0 },
+          "lockedUntil": { "type": "Date", "sparse": true },
+          "lastLogin": { "type": "Date" },
+          "refreshToken": { "type": "String", "sparse": true }
+        },
+        "status": {
+          "isActive": { "type": "Boolean", "default": true },
+          "isVerified": { "type": "Boolean", "default": false },
+          "emailVerified": { "type": "Boolean", "default": false },
+          "phoneVerified": { "type": "Boolean", "default": false }
+        },
+        "preferences": {
+          "description": "Embedded - User preferences, small data",
+          "language": { "type": "String", "default": "en" },
+          "timezone": { "type": "String", "default": "Asia/Kolkata" },
+          "notifications": {
+            "email": { "type": "Boolean", "default": true },
+            "sms": { "type": "Boolean", "default": true },
+            "push": { "type": "Boolean", "default": true }
+          }
+        },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "deletedAt": { "type": "Date", "sparse": true },
+          "createdBy": { "type": "ObjectId", "ref": "users" },
+          "updatedBy": { "type": "ObjectId", "ref": "users" }
+        }
+      },
+      "indexes": [
+        { "fields": { "userId": 1 }, "unique": true },
+        { "fields": { "username": 1 }, "unique": true },
+        { "fields": { "email": 1 }, "unique": true },
+        { "fields": { "userType": 1, "role": 1, "status.isActive": 1 } },
+        { "fields": { "profile.mobileNumber": 1 }, "sparse": true },
+        { "fields": { "employment.organizationId": 1, "status.isActive": 1 } },
+        { "fields": { "username": "text", "email": "text", "profile.firstName": "text", "profile.lastName": "text" } }
+      ]
+    },
+    "patients": {
+      "description": "Patient records with enhanced user relationships and referral tracking",
+      "collection": "patients",
+      "documentSizeLimit": "16KB typical, 32KB max",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "patientId": { "type": "String", "unique": true, "pattern": "^PAT[0-9]{6}$", "auto": true },
+        "mrn": { "type": "String", "unique": true, "sparse": true },
+        "primaryUserId": { 
+          "type": "ObjectId", 
+          "ref": "users", 
+          "sparse": true,
+          "description": "Primary consumer user who manages this patient"
+        },
+        "authorizedUsers": {
+          "type": "[ObjectId]",
+          "ref": "users",
+          "maxItems": 10,
+          "description": "Additional users authorized to access this patient's records"
+        },
+        "linkedConsumerAccount": {
+          "type": "ObjectId",
+          "ref": "users",
+          "sparse": true,
+          "description": "If patient has their own consumer account"
+        },
+        "demographics": {
+          "description": "Embedded - Core patient demographics",
+          "firstName": { "type": "String", "required": true },
+          "lastName": { "type": "String", "required": true },
+          "dateOfBirth": { "type": "Date", "required": true },
+          "gender": { "type": "String", "enum": ["male", "female", "other"], "required": true },
+          "bloodGroup": { "type": "String", "enum": ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "Unknown"] }
+        },
+        "contact": {
+          "description": "Embedded - Contact information",
+          "mobileNumber": { "type": "String", "required": true, "pattern": "^\\+?[1-9]\\d{1,14}$" },
+          "alternateNumber": { "type": "String", "pattern": "^\\+?[1-9]\\d{1,14}$" },
+          "email": { "type": "String", "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" },
+          "address": {
+            "street": { "type": "String" },
+            "city": { "type": "String" },
+            "state": { "type": "String" },
+            "zipCode": { "type": "String" },
+            "country": { "type": "String", "default": "India" }
+          }
+        },
+        "medicalHistory": {
+          "description": "Embedded - Limited medical history arrays",
+          "allergies": { "type": "[String]", "maxItems": 20 },
+          "medications": { "type": "[String]", "maxItems": 20 },
+          "conditions": { "type": "[String]", "maxItems": 20 },
+          "surgeries": { "type": "[String]", "maxItems": 10 },
+          "familyHistory": { "type": "Object", "maxSize": "2KB" }
+        },
+        "insurance": {
+          "description": "Embedded - Insurance details",
+          "provider": { "type": "String" },
+          "policyNumber": { "type": "String" },
+          "groupNumber": { "type": "String" },
+          "validUntil": { "type": "Date" }
+        },
+        "referralChain": {
+          "description": "Comprehensive referral tracking system",
+          "type": "[Object]",
+          "maxItems": 50,
+          "schema": {
+            "referralId": { "type": "String", "pattern": "^REF[0-9]{8}$" },
+            "referredBy": { "type": "ObjectId", "required": true },
+            "referredByType": { 
+              "type": "String", 
+              "enum": ["hospital", "lab", "doctor", "collectionCenter", "clinic"],
+              "required": true 
+            },
+            "referredByName": { "type": "String", "required": true, "denormalized": true },
+            "referredTo": { "type": "ObjectId" },
+            "referredToType": { 
+              "type": "String", 
+              "enum": ["hospital", "lab", "doctor", "collectionCenter", "clinic"]
+            },
+            "referralDate": { "type": "Date", "required": true },
+            "referralReason": { "type": "String", "maxLength": 500 },
+            "referralNotes": { "type": "String", "maxLength": 1000 },
+            "referralTests": { "type": "[ObjectId]", "ref": "tests" },
+            "isActive": { "type": "Boolean", "default": true },
+            "completedDate": { "type": "Date" }
+          }
+        },
+        "currentReferralSource": {
+          "description": "Most recent active referral - denormalized for quick access",
+          "referredBy": { "type": "ObjectId" },
+          "referredByType": { "type": "String" },
+          "referredByName": { "type": "String" },
+          "referralDate": { "type": "Date" }
+        },
+        "consent": {
+          "description": "Embedded - Consent flags",
+          "dataSharing": { "type": "Boolean", "default": false },
+          "researchParticipation": { "type": "Boolean", "default": false },
+          "marketingCommunication": { "type": "Boolean", "default": false },
+          "familyAccessConsent": { "type": "Boolean", "default": true },
+          "consentDate": { "type": "Date" }
+        },
+        "statistics": {
+          "description": "Embedded - Aggregated stats",
+          "totalCases": { "type": "Number", "default": 0 },
+          "totalReports": { "type": "Number", "default": 0 },
+          "lastVisit": { "type": "Date" }
+        },
+        "status": { "type": "String", "enum": ["active", "inactive", "deceased"], "default": "active" },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "deletedAt": { "type": "Date", "sparse": true },
+          "createdBy": { "type": "ObjectId", "ref": "users" },
+          "updatedBy": { "type": "ObjectId", "ref": "users" }
+        }
+      },
+      "indexes": [
+        { "fields": { "patientId": 1 }, "unique": true },
+        { "fields": { "mrn": 1 }, "unique": true, "sparse": true },
+        { "fields": { "primaryUserId": 1 }, "sparse": true },
+        { "fields": { "authorizedUsers": 1 }, "sparse": true },
+        { "fields": { "referralChain.referredBy": 1, "referralChain.isActive": 1 } },
+        { "fields": { "currentReferralSource.referredBy": 1 } },
+        { "fields": { "demographics.dateOfBirth": 1 } },
+        { "fields": { "contact.mobileNumber": 1 } },
+        { "fields": { "status": 1, "metadata.createdAt": -1 } },
+        { "fields": { "demographics.firstName": "text", "demographics.lastName": "text", "patientId": "text", "mrn": "text" } }
+      ]
+    },
+    "hospitals": {
+      "description": "Hospital facilities - main healthcare providers with optional attached labs",
+      "collection": "hospitals",
+      "documentSizeLimit": "16KB typical, 64KB max",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "hospitalId": { "type": "String", "unique": true, "pattern": "^HSP[0-9]{6}$", "auto": true },
+        "hospitalType": { 
+          "type": "String", 
+          "enum": ["general", "specialty", "multiSpecialty", "teaching", "research"],
+          "required": true 
+        },
+        "accreditation": {
+          "nabh": { "type": "Boolean", "default": false },
+          "nabl": { "type": "Boolean", "default": false },
+          "jci": { "type": "Boolean", "default": false },
+          "iso": { "type": "Boolean", "default": false }
+        },
+        "departments": { 
+          "type": "[String]", 
+          "maxItems": 50,
+          "description": "List of departments in the hospital"
+        },
+        "bedCapacity": { "type": "Number", "min": 0 },
+        "icuBeds": { "type": "Number", "min": 0 },
+        "emergencyServices": { "type": "Boolean", "default": false },
+        "attachedLabs": {
+          "type": "[ObjectId]",
+          "ref": "labs",
+          "maxItems": 10,
+          "description": "Labs operated by or attached to this hospital"
+        },
+        "name": { "type": "String", "required": true },
+        "licenseNumber": { "type": "String", "required": true, "unique": true },
+        "taxId": { "type": "String", "sparse": true },
+        "contact": {
+          "description": "Embedded - Core contact info",
+          "phone": { "type": "String", "required": true, "pattern": "^\\+?[1-9]\\d{1,14}$" },
+          "email": { "type": "String", "required": true, "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" },
+          "website": { "type": "String", "pattern": "^https?://.*" },
+          "emergencyContact": { "type": "String", "pattern": "^\\+?[1-9]\\d{1,14}$" }
+        },
+        "address": {
+          "description": "Embedded - Address is small and frequently accessed",
+          "street": { "type": "String", "required": true },
+          "city": { "type": "String", "required": true },
+          "state": { "type": "String", "required": true },
+          "zipCode": { "type": "String", "required": true },
+          "country": { "type": "String", "default": "India" },
+          "coordinates": {
+            "type": { "type": "String", "enum": ["Point"], "default": "Point" },
+            "coordinates": { "type": "[Number]", "index": "2dsphere" }
+          }
+        },
+        "operatingHours": {
+          "description": "Embedded - Small schedule data",
+          "monday": { "type": "String", "default": "09:00-18:00" },
+          "tuesday": { "type": "String", "default": "09:00-18:00" },
+          "wednesday": { "type": "String", "default": "09:00-18:00" },
+          "thursday": { "type": "String", "default": "09:00-18:00" },
+          "friday": { "type": "String", "default": "09:00-18:00" },
+          "saturday": { "type": "String", "default": "09:00-13:00" },
+          "sunday": { "type": "String", "default": "Closed" }
+        },
+        "capabilities": {
+          "description": "Embedded - Limited arrays for capabilities",
+          "services": { "type": "[String]", "maxItems": 50 },
+          "specializations": { "type": "[String]", "maxItems": 30 },
+          "equipment": { "type": "[String]", "maxItems": 50 },
+          "certificationsCount": { "type": "Number", "default": 0 },
+          "activeCertifications": { 
+            "type": "[Object]", 
+            "maxItems": 5,
+            "comment": "Only show top 5 active certifications, rest in organizationCertifications collection"
+          }
+        },
+        "settings": {
+          "description": "Embedded - Small configuration data",
+          "allowOnlineBooking": { "type": "Boolean", "default": true },
+          "allowHomeCollection": { "type": "Boolean", "default": false },
+          "maxDailyCapacity": { "type": "Number", "default": 100 },
+          "averageReportTime": { "type": "Number", "default": 24 },
+          "autoConfirmAppointments": { "type": "Boolean", "default": false }
+        },
+        "branding": {
+          "description": "Embedded - Small branding data",
+          "logo": { "type": "String" },
+          "tagline": { "type": "String" },
+          "primaryColor": { "type": "String", "pattern": "^#[0-9A-Fa-f]{6}$" },
+          "secondaryColor": { "type": "String", "pattern": "^#[0-9A-Fa-f]{6}$" }
+        },
+        "mobileFields": {
+          "description": "Embedded - iOS app display fields",
+          "reviewCount": { "type": "Number", "default": 0 },
+          "averageRating": { "type": "Number", "default": 0, "min": 0, "max": 5 },
+          "priceRange": { "type": "String", "enum": ["$", "$$", "$$$"], "default": "$" },
+          "features": { "type": "[String]", "default": [], "maxItems": 10 },
+          "nextAvailable": { "type": "String", "virtual": true },
+          "services": { "type": "[String]", "default": [], "maxItems": 20 },
+          "amenities": { "type": "[String]", "default": [], "maxItems": 15 },
+          "thumbnail": { "type": "String" },
+          "acceptsInsurance": { "type": "Boolean", "default": true },
+          "averageWaitTime": { "type": "Number", "default": 15 },
+          "organizationDescription": { "type": "String", "maxLength": 500 },
+          "galleryCount": { "type": "Number", "default": 0 }
+        },
+        "operationalStats": {
+          "description": "Embedded - Aggregated statistics",
+          "sameDay": { "type": "Boolean", "default": false },
+          "homeCollection": { "type": "Boolean", "default": false },
+          "onlineReports": { "type": "Boolean", "default": true },
+          "totalTests": { "type": "Number", "default": 0 },
+          "totalPatients": { "type": "Number", "default": 0 },
+          "completionRate": { "type": "Number", "default": 0, "min": 0, "max": 100 }
+        },
+        "socialMedia": {
+          "description": "Embedded - Small social media links",
+          "facebook": { "type": "String" },
+          "twitter": { "type": "String" },
+          "linkedin": { "type": "String" }
+        },
+        "workingHours": {
+          "description": "Embedded - Simple working hours",
+          "open": { "type": "String", "default": "09:00" },
+          "close": { "type": "String", "default": "18:00" },
+          "days": { "type": "[String]", "default": ["Mon", "Tue", "Wed", "Thu", "Fri"], "maxItems": 7 },
+          "is24Hours": { "type": "Boolean", "default": false }
+        },
+        "parentNetwork": { 
+          "type": "ObjectId", 
+          "ref": "healthcareNetworks", 
+          "sparse": true,
+          "description": "Parent healthcare network if part of a chain"
+        },
+        "status": {
+          "isActive": { "type": "Boolean", "default": true },
+          "isVerified": { "type": "Boolean", "default": false },
+          "verifiedAt": { "type": "Date" }
+        },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "deletedAt": { "type": "Date", "sparse": true },
+          "establishedDate": { "type": "Date" }
+        }
+      },
+      "indexes": [
+        { "fields": { "hospitalId": 1 }, "unique": true },
+        { "fields": { "hospitalType": 1, "status.isActive": 1 } },
+        { "fields": { "licenseNumber": 1 }, "unique": true },
+        { "fields": { "attachedLabs": 1 }, "sparse": true },
+        { "fields": { "address.city": 1, "address.state": 1 } },
+        { "fields": { "address.coordinates": "2dsphere" } },
+        { "fields": { "mobileFields.averageRating": -1, "mobileFields.reviewCount": -1 } },
+        { "fields": { "name": "text", "address.city": "text", "address.state": "text" } }
+      ]
+    },
+    "labs": {
+      "description": "Laboratory facilities - independent or hospital-attached testing centers",
+      "collection": "labs",
+      "documentSizeLimit": "16KB typical, 64KB max",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "labId": { "type": "String", "unique": true, "pattern": "^LAB[0-9]{6}$", "auto": true },
+        "labType": { 
+          "type": "String", 
+          "enum": ["diagnostic", "pathology", "radiology", "combined", "specialized"],
+          "required": true 
+        },
+        "ownership": {
+          "type": "String",
+          "enum": ["independent", "hospitalAttached", "chain", "franchise"],
+          "required": true
+        },
+        "parentHospital": {
+          "type": "ObjectId",
+          "ref": "hospitals",
+          "sparse": true,
+          "description": "If attached to a hospital"
+        },
+        "attachedCollectionCenters": {
+          "type": "[ObjectId]",
+          "ref": "collectionCenters",
+          "maxItems": 50,
+          "description": "Collection centers operated by this lab"
+        },
+        "name": { "type": "String", "required": true },
+        "licenseNumber": { "type": "String", "required": true, "unique": true },
+        "nablAccreditationNumber": { "type": "String", "sparse": true },
+        "capAccreditationNumber": { "type": "String", "sparse": true },
+        "taxId": { "type": "String", "sparse": true },
+        "contact": {
+          "description": "Embedded - Core contact info",
+          "phone": { "type": "String", "required": true, "pattern": "^\\+?[1-9]\\d{1,14}$" },
+          "email": { "type": "String", "required": true, "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" },
+          "website": { "type": "String", "pattern": "^https?://.*" },
+          "emergencyContact": { "type": "String", "pattern": "^\\+?[1-9]\\d{1,14}$" }
+        },
+        "address": {
+          "description": "Embedded - Address is small and frequently accessed",
+          "street": { "type": "String", "required": true },
+          "city": { "type": "String", "required": true },
+          "state": { "type": "String", "required": true },
+          "zipCode": { "type": "String", "required": true },
+          "country": { "type": "String", "default": "India" },
+          "coordinates": {
+            "type": { "type": "String", "enum": ["Point"], "default": "Point" },
+            "coordinates": { "type": "[Number]", "index": "2dsphere" }
+          }
+        },
+        "operatingHours": {
+          "description": "Embedded - Small schedule data",
+          "monday": { "type": "String", "default": "09:00-18:00" },
+          "tuesday": { "type": "String", "default": "09:00-18:00" },
+          "wednesday": { "type": "String", "default": "09:00-18:00" },
+          "thursday": { "type": "String", "default": "09:00-18:00" },
+          "friday": { "type": "String", "default": "09:00-18:00" },
+          "saturday": { "type": "String", "default": "09:00-13:00" },
+          "sunday": { "type": "String", "default": "Closed" }
+        },
+        "capabilities": {
+          "description": "Embedded - Limited arrays for capabilities",
+          "testCategories": { "type": "[String]", "maxItems": 50 },
+          "specializations": { "type": "[String]", "maxItems": 30 },
+          "equipment": { "type": "[String]", "maxItems": 50 },
+          "dailyCapacity": { "type": "Number", "default": 100 },
+          "homeCollection": { "type": "Boolean", "default": false },
+          "emergencyServices": { "type": "Boolean", "default": false }
+        },
+        "settings": {
+          "description": "Embedded - Small configuration data",
+          "allowOnlineBooking": { "type": "Boolean", "default": true },
+          "allowHomeCollection": { "type": "Boolean", "default": false },
+          "maxDailyCapacity": { "type": "Number", "default": 100 },
+          "averageReportTime": { "type": "Number", "default": 24 },
+          "autoConfirmAppointments": { "type": "Boolean", "default": false }
+        },
+        "branding": {
+          "description": "Embedded - Small branding data",
+          "logo": { "type": "String" },
+          "tagline": { "type": "String" },
+          "primaryColor": { "type": "String", "pattern": "^#[0-9A-Fa-f]{6}$" },
+          "secondaryColor": { "type": "String", "pattern": "^#[0-9A-Fa-f]{6}$" }
+        },
+        "mobileFields": {
+          "description": "Embedded - iOS app display fields",
+          "reviewCount": { "type": "Number", "default": 0 },
+          "averageRating": { "type": "Number", "default": 0, "min": 0, "max": 5 },
+          "priceRange": { "type": "String", "enum": ["$", "$$", "$$$"], "default": "$" },
+          "features": { "type": "[String]", "default": [], "maxItems": 10 },
+          "nextAvailable": { "type": "String", "virtual": true },
+          "services": { "type": "[String]", "default": [], "maxItems": 20 },
+          "amenities": { "type": "[String]", "default": [], "maxItems": 15 },
+          "thumbnail": { "type": "String" },
+          "acceptsInsurance": { "type": "Boolean", "default": true },
+          "averageWaitTime": { "type": "Number", "default": 15 },
+          "labDescription": { "type": "String", "maxLength": 500 },
+          "galleryCount": { "type": "Number", "default": 0 }
+        },
+        "operationalStats": {
+          "description": "Embedded - Aggregated statistics",
+          "sameDay": { "type": "Boolean", "default": false },
+          "homeCollection": { "type": "Boolean", "default": false },
+          "onlineReports": { "type": "Boolean", "default": true },
+          "totalTests": { "type": "Number", "default": 0 },
+          "totalPatients": { "type": "Number", "default": 0 },
+          "completionRate": { "type": "Number", "default": 0, "min": 0, "max": 100 }
+        },
+        "socialMedia": {
+          "description": "Embedded - Small social media links",
+          "facebook": { "type": "String" },
+          "twitter": { "type": "String" },
+          "linkedin": { "type": "String" }
+        },
+        "parentNetwork": { 
+          "type": "ObjectId", 
+          "ref": "healthcareNetworks", 
+          "sparse": true,
+          "description": "Parent lab network if part of a chain"
+        },
+        "status": {
+          "isActive": { "type": "Boolean", "default": true },
+          "isVerified": { "type": "Boolean", "default": false },
+          "verifiedAt": { "type": "Date" }
+        },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "deletedAt": { "type": "Date", "sparse": true },
+          "establishedDate": { "type": "Date" }
+        }
+      },
+      "indexes": [
+        { "fields": { "labId": 1 }, "unique": true },
+        { "fields": { "labType": 1, "status.isActive": 1 } },
+        { "fields": { "licenseNumber": 1 }, "unique": true },
+        { "fields": { "parentHospital": 1 }, "sparse": true },
+        { "fields": { "attachedCollectionCenters": 1 }, "sparse": true },
+        { "fields": { "ownership": 1, "status.isActive": 1 } },
+        { "fields": { "address.city": 1, "address.state": 1 } },
+        { "fields": { "address.coordinates": "2dsphere" } },
+        { "fields": { "mobileFields.averageRating": -1, "mobileFields.reviewCount": -1 } },
+        { "fields": { "name": "text", "address.city": "text", "address.state": "text" } }
+      ]
+    },
+    "collectionCenters": {
+      "description": "Sample collection centers - usually attached to labs",
+      "collection": "collectionCenters",
+      "documentSizeLimit": "8KB typical, 16KB max",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "centerId": { "type": "String", "unique": true, "pattern": "^COL[0-9]{6}$", "auto": true },
+        "centerType": {
+          "type": "String",
+          "enum": ["standalone", "labAttached", "mobile", "kiosk"],
+          "required": true
+        },
+        "parentLab": {
+          "type": "ObjectId",
+          "ref": "labs",
+          "required": true,
+          "description": "Lab this collection center sends samples to"
+        },
+        "name": { "type": "String", "required": true },
+        "registrationNumber": { "type": "String", "unique": true },
+        "contact": {
+          "phone": { "type": "String", "required": true },
+          "email": { "type": "String" },
+          "whatsapp": { "type": "String" }
+        },
+        "address": {
+          "street": { "type": "String", "required": true },
+          "city": { "type": "String", "required": true },
+          "state": { "type": "String", "required": true },
+          "zipCode": { "type": "String", "required": true },
+          "landmark": { "type": "String" },
+          "coordinates": {
+            "type": { "type": "String", "enum": ["Point"], "default": "Point" },
+            "coordinates": { "type": "[Number]", "index": "2dsphere" }
+          }
+        },
+        "operatingHours": {
+          "monday": { "type": "String", "default": "08:00-20:00" },
+          "tuesday": { "type": "String", "default": "08:00-20:00" },
+          "wednesday": { "type": "String", "default": "08:00-20:00" },
+          "thursday": { "type": "String", "default": "08:00-20:00" },
+          "friday": { "type": "String", "default": "08:00-20:00" },
+          "saturday": { "type": "String", "default": "08:00-14:00" },
+          "sunday": { "type": "String", "default": "Closed" }
+        },
+        "capabilities": {
+          "sampleTypes": { "type": "[String]", "default": ["blood", "urine", "stool"] },
+          "dailyCapacity": { "type": "Number", "default": 50 },
+          "homeCollection": { "type": "Boolean", "default": true },
+          "wheelchairAccessible": { "type": "Boolean", "default": false },
+          "pediatricCollection": { "type": "Boolean", "default": false }
+        },
+        "staff": {
+          "phlebotomists": { "type": "Number", "default": 1 },
+          "receptionist": { "type": "Boolean", "default": true }
+        },
+        "status": {
+          "isActive": { "type": "Boolean", "default": true },
+          "temporarilyClosed": { "type": "Boolean", "default": false },
+          "closureReason": { "type": "String" }
+        },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true }
+        }
+      },
+      "indexes": [
+        { "fields": { "centerId": 1 }, "unique": true },
+        { "fields": { "parentLab": 1, "status.isActive": 1 } },
+        { "fields": { "centerType": 1 } },
+        { "fields": { "address.city": 1, "address.state": 1 } },
+        { "fields": { "address.coordinates": "2dsphere" } },
+        { "fields": { "name": "text", "address.city": "text" } }
+      ]
+    },
+    "clinics": {
+      "description": "Independent medical clinics",
+      "collection": "clinics",
+      "documentSizeLimit": "8KB typical, 16KB max",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "clinicId": { "type": "String", "unique": true, "pattern": "^CLN[0-9]{6}$", "auto": true },
+        "clinicType": {
+          "type": "String",
+          "enum": ["general", "specialty", "polyclinic", "daycare", "urgent"],
+          "required": true
+        },
+        "specialties": { 
+          "type": "[String]", 
+          "maxItems": 20,
+          "description": "Medical specialties offered"
+        },
+        "name": { "type": "String", "required": true },
+        "licenseNumber": { "type": "String", "required": true, "unique": true },
+        "taxId": { "type": "String", "sparse": true },
+        "contact": {
+          "phone": { "type": "String", "required": true },
+          "email": { "type": "String", "required": true },
+          "website": { "type": "String" },
+          "emergencyNumber": { "type": "String" }
+        },
+        "address": {
+          "street": { "type": "String", "required": true },
+          "city": { "type": "String", "required": true },
+          "state": { "type": "String", "required": true },
+          "zipCode": { "type": "String", "required": true },
+          "country": { "type": "String", "default": "India" },
+          "coordinates": {
+            "type": { "type": "String", "enum": ["Point"], "default": "Point" },
+            "coordinates": { "type": "[Number]", "index": "2dsphere" }
+          }
+        },
+        "operatingHours": {
+          "monday": { "type": "String", "default": "09:00-21:00" },
+          "tuesday": { "type": "String", "default": "09:00-21:00" },
+          "wednesday": { "type": "String", "default": "09:00-21:00" },
+          "thursday": { "type": "String", "default": "09:00-21:00" },
+          "friday": { "type": "String", "default": "09:00-21:00" },
+          "saturday": { "type": "String", "default": "09:00-14:00" },
+          "sunday": { "type": "String", "default": "10:00-13:00" }
+        },
+        "facilities": {
+          "consultationRooms": { "type": "Number", "default": 1 },
+          "pharmacy": { "type": "Boolean", "default": false },
+          "minorProcedures": { "type": "Boolean", "default": false },
+          "vaccination": { "type": "Boolean", "default": true },
+          "diagnostics": { "type": "Boolean", "default": false }
+        },
+        "preferredLabs": {
+          "type": "[ObjectId]",
+          "ref": "labs",
+          "maxItems": 5,
+          "description": "Labs this clinic refers patients to"
+        },
+        "status": {
+          "isActive": { "type": "Boolean", "default": true },
+          "isVerified": { "type": "Boolean", "default": false }
+        },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true }
+        }
+      },
+      "indexes": [
+        { "fields": { "clinicId": 1 }, "unique": true },
+        { "fields": { "clinicType": 1, "status.isActive": 1 } },
+        { "fields": { "licenseNumber": 1 }, "unique": true },
+        { "fields": { "specialties": 1 } },
+        { "fields": { "preferredLabs": 1 }, "sparse": true },
+        { "fields": { "address.city": 1, "address.state": 1 } },
+        { "fields": { "address.coordinates": "2dsphere" } },
+        { "fields": { "name": "text", "specialties": "text" } }
+      ]
+    },
+    "doctors": {
+      "description": "Medical practitioners - independent from facility collections",
+      "collection": "doctors",
+      "documentSizeLimit": "8KB typical, 16KB max",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "doctorId": { "type": "String", "unique": true, "pattern": "^DOC[0-9]{6}$", "auto": true },
+        "registrationNumber": { "type": "String", "unique": true, "required": true },
+        "personalInfo": {
+          "firstName": { "type": "String", "required": true },
+          "lastName": { "type": "String", "required": true },
+          "gender": { "type": "String", "enum": ["male", "female", "other"] },
+          "dateOfBirth": { "type": "Date" },
+          "profilePhoto": { "type": "String" }
+        },
+        "qualifications": {
+          "primaryDegree": { "type": "String", "required": true },
+          "specializations": { "type": "[String]", "maxItems": 5 },
+          "additionalDegrees": { "type": "[String]", "maxItems": 10 },
+          "boardCertifications": { "type": "[String]", "maxItems": 5 },
+          "fellowships": { "type": "[String]", "maxItems": 5 }
+        },
+        "experience": {
+          "totalYears": { "type": "Number", "min": 0 },
+          "specialtyYears": { "type": "Number", "min": 0 },
+          "currentSpecialty": { "type": "String" }
+        },
+        "contact": {
+          "mobile": { "type": "String", "required": true },
+          "email": { "type": "String", "required": true },
+          "alternatePhone": { "type": "String" }
+        },
+        "practiceType": {
+          "type": "String",
+          "enum": ["independent", "hospital", "clinic", "multisite"],
+          "required": true
+        },
+        "consultationModes": {
+          "inPerson": { "type": "Boolean", "default": true },
+          "teleconsultation": { "type": "Boolean", "default": false },
+          "homeVisit": { "type": "Boolean", "default": false }
+        },
+        "languages": { "type": "[String]", "default": ["English", "Hindi"] },
+        "achievements": {
+          "awards": { "type": "[String]", "maxItems": 10 },
+          "publications": { "type": "Number", "default": 0 },
+          "researchAreas": { "type": "[String]", "maxItems": 5 }
+        },
+        "preferredLabs": {
+          "type": "[ObjectId]",
+          "ref": "labs",
+          "maxItems": 10,
+          "description": "Labs this doctor prefers for patient referrals"
+        },
+        "status": {
+          "isActive": { "type": "Boolean", "default": true },
+          "isVerified": { "type": "Boolean", "default": false },
+          "verificationDate": { "type": "Date" },
+          "suspendedUntil": { "type": "Date", "sparse": true }
+        },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true }
+        }
+      },
+      "indexes": [
+        { "fields": { "doctorId": 1 }, "unique": true },
+        { "fields": { "registrationNumber": 1 }, "unique": true },
+        { "fields": { "qualifications.specializations": 1 } },
+        { "fields": { "practiceType": 1, "status.isActive": 1 } },
+        { "fields": { "preferredLabs": 1 }, "sparse": true },
+        { "fields": { "personalInfo.firstName": "text", "personalInfo.lastName": "text", "qualifications.specializations": "text" } }
+      ]
+    },
+    "doctorFacilityAssociations": {
+      "description": "Many-to-many relationships between doctors and facilities",
+      "collection": "doctorFacilityAssociations",
+      "documentSizeLimit": "4KB typical, 8KB max",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "associationId": { "type": "String", "unique": true, "pattern": "^DFA[0-9]{8}$", "auto": true },
+        "doctorId": { "type": "ObjectId", "ref": "doctors", "required": true },
+        "facilityId": { "type": "ObjectId", "required": true },
+        "facilityType": {
+          "type": "String",
+          "enum": ["hospital", "lab", "clinic"],
+          "required": true
+        },
+        "associationType": {
+          "type": "String",
+          "enum": ["fullTime", "partTime", "visiting", "consultant", "onCall"],
+          "required": true
+        },
+        "department": { "type": "String" },
+        "designation": { "type": "String" },
+        "schedule": {
+          "days": { "type": "[String]", "default": [] },
+          "timings": { "type": "String" },
+          "slotsPerDay": { "type": "Number" }
+        },
+        "privileges": {
+          "admitting": { "type": "Boolean", "default": false },
+          "operating": { "type": "Boolean", "default": false },
+          "emergency": { "type": "Boolean", "default": false },
+          "consulting": { "type": "Boolean", "default": true }
+        },
+        "fees": {
+          "consultation": { "type": "Number" },
+          "followUp": { "type": "Number" },
+          "emergency": { "type": "Number" },
+          "procedure": { "type": "Number" }
+        },
+        "validFrom": { "type": "Date", "required": true },
+        "validUntil": { "type": "Date" },
+        "isActive": { "type": "Boolean", "default": true },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "createdBy": { "type": "ObjectId", "ref": "users" }
+        }
+      },
+      "indexes": [
+        { "fields": { "associationId": 1 }, "unique": true },
+        { "fields": { "doctorId": 1, "facilityId": 1, "facilityType": 1 }, "unique": true },
+        { "fields": { "doctorId": 1, "isActive": 1 } },
+        { "fields": { "facilityId": 1, "facilityType": 1, "isActive": 1 } },
+        { "fields": { "associationType": 1 } },
+        { "fields": { "validFrom": 1, "validUntil": 1 } }
+      ]
+    },
+    "facilityRelationships": {
+      "description": "Hierarchical relationships between healthcare facilities",
+      "collection": "facilityRelationships",
+      "documentSizeLimit": "4KB typical, 8KB max",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "relationshipId": { "type": "String", "unique": true, "pattern": "^FRL[0-9]{8}$", "auto": true },
+        "parentFacility": {
+          "id": { "type": "ObjectId", "required": true },
+          "type": { "type": "String", "enum": ["hospital", "lab"], "required": true },
+          "name": { "type": "String", "denormalized": true }
+        },
+        "childFacility": {
+          "id": { "type": "ObjectId", "required": true },
+          "type": { "type": "String", "enum": ["lab", "collectionCenter"], "required": true },
+          "name": { "type": "String", "denormalized": true }
+        },
+        "relationshipType": {
+          "type": "String",
+          "enum": ["owned", "operated", "affiliated", "contracted", "preferred"],
+          "required": true
+        },
+        "agreement": {
+          "contractNumber": { "type": "String" },
+          "startDate": { "type": "Date", "required": true },
+          "endDate": { "type": "Date" },
+          "revenueSharingPercentage": { "type": "Number", "min": 0, "max": 100 },
+          "terms": { "type": "String", "maxLength": 2000 }
+        },
+        "operationalDetails": {
+          "sampleTransferFrequency": { "type": "String" },
+          "reportingSLA": { "type": "Number", "description": "Hours" },
+          "qualityAudits": { "type": "Boolean", "default": false }
+        },
+        "isActive": { "type": "Boolean", "default": true },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "approvedBy": { "type": "ObjectId", "ref": "users" }
+        }
+      },
+      "indexes": [
+        { "fields": { "relationshipId": 1 }, "unique": true },
+        { "fields": { "parentFacility.id": 1, "childFacility.id": 1 }, "unique": true },
+        { "fields": { "parentFacility.id": 1, "parentFacility.type": 1, "isActive": 1 } },
+        { "fields": { "childFacility.id": 1, "childFacility.type": 1, "isActive": 1 } },
+        { "fields": { "relationshipType": 1 } },
+        { "fields": { "agreement.startDate": 1, "agreement.endDate": 1 } }
+      ]
+    },
+    "organizationDoctors": {
+      "description": "Separate collection for organization doctors (previously embedded)",
+      "collection": "organizationDoctors",
+      "rationale": "Doctors list can grow significantly and change frequently",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "organizationId": { "type": "ObjectId", "ref": "organizations", "required": true },
+        "doctorId": { "type": "String", "required": true },
+        "name": { "type": "String", "required": true },
+        "specialization": { "type": "String", "required": true },
+        "experience": { "type": "Number", "min": 0 },
+        "qualifications": { "type": "[String]", "maxItems": 10 },
+        "registrationNumber": { "type": "String" },
+        "availability": {
+          "days": { "type": "[String]" },
+          "timings": { "type": "String" }
+        },
+        "consultationFee": { "type": "Number", "min": 0 },
+        "rating": { "type": "Number", "min": 0, "max": 5 },
+        "isActive": { "type": "Boolean", "default": true },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true }
+        }
+      },
+      "indexes": [
+        { "fields": { "organizationId": 1, "isActive": 1 } },
+        { "fields": { "organizationId": 1, "doctorId": 1 }, "unique": true },
+        { "fields": { "specialization": 1 } },
+        { "fields": { "rating": -1 } },
+        { "fields": { "name": "text", "specialization": "text" } }
+      ]
+    },
+    "organizationReviews": {
+      "description": "Separate collection for organization reviews (previously embedded)",
+      "collection": "organizationReviews",
+      "rationale": "Reviews can accumulate indefinitely and need separate management",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "reviewId": { "type": "String", "unique": true, "pattern": "^REV[0-9]{10}$", "auto": true },
+        "organizationId": { "type": "ObjectId", "ref": "organizations", "required": true },
+        "patientId": { "type": "ObjectId", "ref": "patients", "sparse": true },
+        "patientName": { "type": "String", "required": true },
+        "rating": { "type": "Number", "min": 1, "max": 5, "required": true },
+        "comment": { "type": "String", "maxLength": 1000 },
+        "aspects": {
+          "cleanliness": { "type": "Number", "min": 1, "max": 5 },
+          "staff": { "type": "Number", "min": 1, "max": 5 },
+          "waitTime": { "type": "Number", "min": 1, "max": 5 },
+          "facilities": { "type": "Number", "min": 1, "max": 5 }
+        },
+        "images": { "type": "[String]", "maxItems": 5 },
+        "verified": { "type": "Boolean", "default": false },
+        "verificationMethod": { "type": "String", "enum": ["booking", "report", "manual"] },
+        "response": {
+          "text": { "type": "String", "maxLength": 500 },
+          "respondedBy": { "type": "ObjectId", "ref": "users" },
+          "respondedAt": { "type": "Date" }
+        },
+        "helpful": {
+          "count": { "type": "Number", "default": 0 },
+          "users": { "type": "[ObjectId]", "ref": "users", "maxItems": 1000 }
+        },
+        "status": { "type": "String", "enum": ["active", "hidden", "deleted"], "default": "active" },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "ipAddress": { "type": "String" },
+          "deviceType": { "type": "String" }
+        }
+      },
+      "indexes": [
+        { "fields": { "reviewId": 1 }, "unique": true },
+        { "fields": { "organizationId": 1, "status": 1, "metadata.createdAt": -1 } },
+        { "fields": { "organizationId": 1, "rating": -1 } },
+        { "fields": { "patientId": 1 }, "sparse": true },
+        { "fields": { "verified": 1, "rating": -1 } },
+        { "fields": { "comment": "text" } }
+      ]
+    },
+    "labTestPrices": {
+      "description": "Lab-specific test pricing and availability",
+      "collection": "labTestPrices",
+      "rationale": "Price lists can be extensive and change frequently",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "labId": { "type": "ObjectId", "ref": "labs", "required": true },
+        "testId": { "type": "ObjectId", "ref": "tests", "required": true },
+        "testName": { "type": "String", "required": true, "denormalized": true },
+        "category": { "type": "String", "required": true, "denormalized": true },
+        "pricing": {
+          "basePrice": { "type": "Number", "required": true, "min": 0 },
+          "discountedPrice": { "type": "Number", "min": 0 },
+          "homeCollectionCharge": { "type": "Number", "default": 0 },
+          "urgentProcessingCharge": { "type": "Number", "default": 0 }
+        },
+        "offers": [{
+          "type": { "type": "String", "enum": ["percentage", "fixed", "bundle"] },
+          "value": { "type": "Number" },
+          "validFrom": { "type": "Date" },
+          "validUntil": { "type": "Date" },
+          "conditions": { "type": "String" }
+        }],
+        "turnaround": {
+          "standard": { "type": "Number", "required": true },
+          "urgent": { "type": "Number" },
+          "unit": { "type": "String", "enum": ["hours", "days"], "default": "hours" }
+        },
+        "isAvailable": { "type": "Boolean", "default": true },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "updatedBy": { "type": "ObjectId", "ref": "users" }
+        }
+      },
+      "indexes": [
+        { "fields": { "labId": 1, "testId": 1 }, "unique": true },
+        { "fields": { "labId": 1, "category": 1, "isAvailable": 1 } },
+        { "fields": { "labId": 1, "pricing.basePrice": 1 } },
+        { "fields": { "testId": 1, "isAvailable": 1 } },
+        { "fields": { "testName": "text" } }
+      ]
+    },
+    "facilityCertifications": {
+      "description": "Certifications for all facility types (hospitals, labs, clinics)",
+      "collection": "facilityCertifications",
+      "rationale": "Certifications can be numerous with detailed documentation",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "facilityId": { "type": "ObjectId", "required": true },
+        "facilityType": { 
+          "type": "String", 
+          "enum": ["hospital", "lab", "clinic"],
+          "required": true 
+        },
+        "name": { "type": "String", "required": true },
+        "number": { "type": "String", "required": true },
+        "issuedBy": { "type": "String", "required": true },
+        "issuedDate": { "type": "Date", "required": true },
+        "expiryDate": { "type": "Date" },
+        "documentUrl": { "type": "String" },
+        "verificationUrl": { "type": "String" },
+        "status": { "type": "String", "enum": ["active", "expired", "pending", "revoked"], "default": "active" },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "uploadedBy": { "type": "ObjectId", "ref": "users" }
+        }
+      },
+      "indexes": [
+        { "fields": { "facilityId": 1, "facilityType": 1, "status": 1 } },
+        { "fields": { "facilityId": 1, "number": 1 }, "unique": true },
+        { "fields": { "expiryDate": 1, "status": 1 } },
+        { "fields": { "facilityType": 1, "status": 1 } }
+      ]
+    },
+    "facilityGallery": {
+      "description": "Image galleries for all facility types",
+      "collection": "facilityGallery",
+      "rationale": "Image galleries can be large and need separate CDN management",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "facilityId": { "type": "ObjectId", "required": true },
+        "facilityType": { 
+          "type": "String", 
+          "enum": ["hospital", "lab", "clinic", "collectionCenter"],
+          "required": true 
+        },
+        "imageUrl": { "type": "String", "required": true },
+        "thumbnailUrl": { "type": "String" },
+        "caption": { "type": "String", "maxLength": 200 },
+        "category": { "type": "String", "enum": ["facility", "equipment", "staff", "certificate", "other"] },
+        "order": { "type": "Number", "default": 0 },
+        "isActive": { "type": "Boolean", "default": true },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "uploadedBy": { "type": "ObjectId", "ref": "users" }
+        }
+      },
+      "indexes": [
+        { "fields": { "facilityId": 1, "facilityType": 1, "isActive": 1, "order": 1 } },
+        { "fields": { "facilityId": 1, "category": 1 } },
+        { "fields": { "facilityType": 1, "isActive": 1 } }
+      ]
+    },
+    "tests": {
+      "description": "Core test catalog - sections moved to separate collection",
+      "collection": "tests",
+      "documentSizeLimit": "8KB typical, 32KB max",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "testId": { "type": "String", "unique": true, "pattern": "^TST[0-9]{6}$", "auto": true },
+        "name": { "type": "String", "required": true },
+        "shortName": { "type": "String", "required": true },
+        "category": { 
+          "type": "String", 
+          "enum": ["bloodTest", "imaging", "cardiology", "womensHealth", "diabetes", "thyroid", "liver", "kidney", "cancer", "fitness", "allergy", "infection", "general"],
+          "required": true
+        },
+        "subcategory": { "type": "String" },
+        "description": { "type": "String", "required": true, "maxLength": 500 },
+        "clinicalSignificance": { "type": "String", "maxLength": 1000 },
+        "methodology": { "type": "String", "required": true },
+        "sampleRequirements": {
+          "_comment": "Embedded - Small, critical sample info",
+          "types": [{
+            "type": { "type": "String", "enum": ["blood", "urine", "stool", "saliva", "tissue", "swab"], "required": true },
+            "volume": { "type": "String" },
+            "container": { "type": "String" },
+            "storageTemperature": { "type": "String" }
+          }],
+          "fastingRequired": { "type": "String", "enum": ["none", "8hours", "10hours", "12hours", "overnight"], "default": "none" },
+          "specialInstructions": { "type": "String", "maxLength": 500 }
+        },
+        "parameters": {
+          "description": "Embedded - Limited to prevent document growth",
+          "type": "[Object]",
+          "maxItems": 50,
+          "schema": {
+            "name": { "type": "String", "required": true },
+            "displayName": { "type": "String" },
+            "unit": { "type": "String" },
+            "dataType": { "type": "String", "enum": ["numeric", "text", "boolean", "option"], "required": true },
+            "normalRange": {
+              "min": { "type": "Number" },
+              "max": { "type": "Number" },
+              "text": { "type": "String" }
+            },
+            "criticalRange": {
+              "low": { "type": "Number" },
+              "high": { "type": "Number" }
+            },
+            "options": { "type": "[String]", "maxItems": 20 },
+            "order": { "type": "Number", "required": true }
+          }
+        },
+        "pricing": {
+          "description": "Embedded - Default pricing",
+          "basePrice": { "type": "Number", "required": true, "min": 0 },
+          "discountedPrice": { "type": "Number", "min": 0 },
+          "homeCollectionCharge": { "type": "Number", "default": 0 },
+          "urgentProcessingCharge": { "type": "Number", "default": 0 }
+        },
+        "turnaround": {
+          "description": "Embedded - Standard turnaround times",
+          "standard": { "type": "Number", "required": true },
+          "urgent": { "type": "Number" },
+          "unit": { "type": "String", "enum": ["hours", "days"], "default": "hours" }
+        },
+        "availability": {
+          "isActive": { "type": "Boolean", "default": true },
+          "isFeatured": { "type": "Boolean", "default": false },
+          "isPopular": { "type": "Boolean", "default": false }
+        },
+        "searchTags": { "type": "[String]", "maxItems": 20 },
+        "relatedTests": { "type": "[ObjectId]", "ref": "tests", "maxItems": 10 },
+        "sampleType": {
+          "description": "Embedded - Display info for mobile",
+          "type": { "type": "String", "enum": ["blood", "urine", "stool", "saliva", "tissue", "swab"], "required": true },
+          "displayName": { "type": "String", "virtual": true },
+          "icon": { "type": "String", "virtual": true }
+        },
+        "fastingRequirement": {
+          "description": "Embedded - Critical patient instruction",
+          "required": { "type": "String", "enum": ["none", "8_hours", "10_hours", "12_hours", "overnight"], "default": "none" },
+          "displayText": { "type": "String", "virtual": true },
+          "instructions": { "type": "String", "maxLength": 200 }
+        },
+        "mobileFields": {
+          "description": "Embedded - iOS app display fields",
+          "icon": { "type": "String", "required": true },
+          "duration": { "type": "String", "required": true },
+          "reportTime": { "type": "String", "required": true },
+          "keyMeasurements": { "type": "[String]", "default": [], "maxItems": 10 },
+          "healthBenefits": { "type": "String", "maxLength": 200 },
+          "categoryColor": { "type": "String" },
+          "formattedPrice": { "type": "String", "virtual": true },
+          "formattedOriginalPrice": { "type": "String", "virtual": true }
+        },
+        "sectionsCount": { "type": "Number", "default": 0 },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "deletedAt": { "type": "Date", "sparse": true },
+          "createdBy": { "type": "ObjectId", "ref": "users" },
+          "lastModifiedBy": { "type": "ObjectId", "ref": "users" }
+        }
+      },
+      "indexes": [
+        { "fields": { "testId": 1 }, "unique": true },
+        { "fields": { "category": 1, "availability.isActive": 1 } },
+        { "fields": { "availability.isFeatured": -1, "availability.isPopular": -1 } },
+        { "fields": { "pricing.basePrice": 1 } },
+        { "fields": { "name": "text", "shortName": "text", "description": "text", "searchTags": "text" } }
+      ]
+    },
+    "testSections": {
+      "description": "Separate collection for test content sections",
+      "collection": "testSections",
+      "rationale": "Rich content sections can be large and are not always needed",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "testId": { "type": "ObjectId", "ref": "tests", "required": true },
+        "type": { "type": "String", "enum": ["about", "whyNeeded", "insights", "preparation", "results"], "required": true },
+        "title": { "type": "String", "required": true },
+        "content": {
+          "overview": { "type": "String", "maxLength": 2000 },
+          "bulletPoints": { "type": "[String]", "maxItems": 20 },
+          "categories": [{
+            "icon": { "type": "String" },
+            "title": { "type": "String" },
+            "items": { "type": "[String]", "maxItems": 10 },
+            "color": { "type": "String" }
+          }],
+          "tips": { "type": "[String]", "maxItems": 10 },
+          "warnings": { "type": "[String]", "maxItems": 10 },
+          "faqs": [{
+            "question": { "type": "String" },
+            "answer": { "type": "String" }
+          }],
+          "references": { "type": "[String]", "maxItems": 5 }
+        },
+        "order": { "type": "Number", "default": 0 },
+        "isActive": { "type": "Boolean", "default": true },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "updatedBy": { "type": "ObjectId", "ref": "users" }
+        }
+      },
+      "indexes": [
+        { "fields": { "testId": 1, "type": 1 }, "unique": true },
+        { "fields": { "testId": 1, "isActive": 1, "order": 1 } },
+        { "fields": { "content.overview": "text", "content.bulletPoints": "text" } }
+      ]
+    },
+    "appointments": {
+      "description": "Core appointment data - test details moved to separate collection",
+      "collection": "appointments",
+      "documentSizeLimit": "8KB typical, 16KB max",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "appointmentId": { "type": "String", "unique": true, "pattern": "^APT[0-9]{6}$", "auto": true },
+        "patientId": { "type": "ObjectId", "ref": "patients", "required": true },
+        "caseId": { "type": "ObjectId", "ref": "cases", "sparse": true },
+        "organizationId": { "type": "ObjectId", "ref": "organizations", "required": true },
+        "type": { 
+          "type": "String", 
+          "enum": ["walkIn", "scheduled", "urgent", "homeCollection", "visitLab", "teleconsultation"],
+          "required": true
+        },
+        "scheduling": {
+          "description": "Embedded - Core scheduling data",
+          "scheduledDate": { "type": "Date", "required": true },
+          "scheduledTime": { "type": "String", "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$", "required": true },
+          "duration": { "type": "Number", "default": 30, "min": 15, "max": 180 },
+          "timeSlotId": { "type": "ObjectId", "ref": "appointmentSlots", "sparse": true }
+        },
+        "location": {
+          "description": "Embedded - Location details",
+          "type": { "type": "String", "enum": ["onsite", "home", "virtual"], "required": true },
+          "address": { "type": "String", "maxLength": 500 },
+          "coordinates": {
+            "type": { "type": "String", "enum": ["Point"], "default": "Point" },
+            "coordinates": { "type": "[Number]" }
+          }
+        },
+        "services": {
+          "description": "References only - details in appointmentTests",
+          "testIds": { "type": "[ObjectId]", "ref": "tests", "maxItems": 20 },
+          "packageIds": { "type": "[ObjectId]", "ref": "healthPackages", "maxItems": 5 },
+          "testCount": { "type": "Number", "default": 0 }
+        },
+        "assignment": {
+          "description": "Embedded - Assignment info",
+          "collectorId": { "type": "ObjectId", "ref": "users", "sparse": true },
+          "vehicleId": { "type": "String" },
+          "routeId": { "type": "String" }
+        },
+        "status": {
+          "description": "Embedded - Status tracking",
+          "current": { 
+            "type": "String", 
+            "enum": ["pending", "confirmed", "inProgress", "completed", "cancelled", "noShow", "rescheduled"],
+            "default": "pending"
+          },
+          "confirmedAt": { "type": "Date" },
+          "startedAt": { "type": "Date" },
+          "completedAt": { "type": "Date" },
+          "cancelledAt": { "type": "Date" },
+          "cancellationReason": { "type": "String", "maxLength": 200 }
+        },
+        "reminders": {
+          "description": "Embedded - Reminder status",
+          "sent": { "type": "Boolean", "default": false },
+          "sentAt": { "type": "Date" },
+          "method": { "type": "String", "enum": ["sms", "email", "push", "whatsapp"] }
+        },
+        "notes": { "type": "String", "maxLength": 1000 },
+        "facilitySnapshot": {
+          "description": "Embedded - Denormalized facility info for mobile",
+          "name": { "type": "String" },
+          "type": { "type": "String" },
+          "address": { "type": "String" },
+          "phone": { "type": "String" },
+          "distance": { "type": "Number" }
+        },
+        "patientSnapshot": {
+          "description": "Embedded - Denormalized patient info",
+          "name": { "type": "String" },
+          "phone": { "type": "String" },
+          "age": { "type": "Number" },
+          "gender": { "type": "String" }
+        },
+        "collectorInfo": {
+          "description": "Embedded - Collector details for mobile",
+          "id": { "type": "String" },
+          "name": { "type": "String" },
+          "phone": { "type": "String" },
+          "rating": { "type": "Number" }
+        },
+        "appointmentDetails": {
+          "description": "Embedded - Summary details",
+          "totalCost": { "type": "Number" },
+          "estimatedDuration": { "type": "Number" },
+          "specialInstructions": { "type": "String", "maxLength": 500 },
+          "homeAddress": { "type": "String", "maxLength": 500 },
+          "canReschedule": { "type": "Boolean", "default": true },
+          "canCancel": { "type": "Boolean", "default": true }
+        },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "createdBy": { "type": "ObjectId", "ref": "users" }
+        }
+      },
+      "indexes": [
+        { "fields": { "appointmentId": 1 }, "unique": true },
+        { "fields": { "patientId": 1, "scheduling.scheduledDate": 1 } },
+        { "fields": { "organizationId": 1, "scheduling.scheduledDate": 1 } },
+        { "fields": { "type": 1, "status.current": 1 } },
+        { "fields": { "assignment.collectorId": 1, "scheduling.scheduledDate": 1 } },
+        { "fields": { "scheduling.scheduledDate": 1, "scheduling.scheduledTime": 1 } },
+        { "fields": { "appointmentId": "text", "notes": "text" } }
+      ]
+    },
+    "appointmentTests": {
+      "description": "Separate collection for appointment test details",
+      "collection": "appointmentTests",
+      "rationale": "Test details can be extensive with preparation instructions",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "appointmentId": { "type": "ObjectId", "ref": "appointments", "required": true },
+        "testId": { "type": "ObjectId", "ref": "tests", "required": true },
+        "testSnapshot": {
+          "id": { "type": "String" },
+          "name": { "type": "String", "required": true },
+          "category": { "type": "String" },
+          "price": { "type": "Number" },
+          "discountedPrice": { "type": "Number" },
+          "sampleType": { "type": "String" },
+          "fastingRequired": { "type": "String" }
+        },
+        "preparation": {
+          "instructions": { "type": "String" },
+          "fastingHours": { "type": "Number" },
+          "waterAllowed": { "type": "Boolean", "default": true },
+          "medicationsToAvoid": { "type": "[String]" }
+        },
+        "status": {
+          "sampleCollected": { "type": "Boolean", "default": false },
+          "reportReady": { "type": "Boolean", "default": false }
+        },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true }
+        }
+      },
+      "indexes": [
+        { "fields": { "appointmentId": 1 } },
+        { "fields": { "appointmentId": 1, "testId": 1 }, "unique": true },
+        { "fields": { "testId": 1 } }
+      ]
+    },
+    "cases": {
+      "description": "Central workflow entity - optimized with limited embedded data",
+      "collection": "cases",
+      "documentSizeLimit": "8KB typical, 16KB max",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "caseId": { "type": "String", "unique": true, "pattern": "^CASE[0-9]{6}$", "auto": true },
+        "patientId": { "type": "ObjectId", "ref": "patients", "required": true },
+        "referral": {
+          "description": "Embedded - Small referral data",
+          "type": { "type": "String", "enum": ["doctor", "hospital", "selfReferral", "corporate"], "required": true },
+          "referrerId": { "type": "ObjectId", "sparse": true },
+          "referrerName": { "type": "String" },
+          "referralDate": { "type": "Date", "default": "now" }
+        },
+        "organizationId": { "type": "ObjectId", "ref": "organizations", "required": true },
+        "priority": { "type": "String", "enum": ["low", "medium", "high", "urgent"], "default": "medium" },
+        "status": { 
+          "type": "String", 
+          "enum": ["pending", "sampleCollected", "inProgress", "completed", "cancelled", "onHold"],
+          "default": "pending"
+        },
+        "workflow": {
+          "description": "Embedded - Workflow stages",
+          "currentStage": { "type": "String", "enum": ["registration", "sampleCollection", "processing", "reporting", "delivery"], "default": "registration" },
+          "stages": {
+            "type": "[Object]",
+            "maxItems": 10,
+            "schema": {
+              "stage": { "type": "String" },
+              "status": { "type": "String", "enum": ["pending", "inProgress", "completed", "skipped"] },
+              "startedAt": { "type": "Date" },
+              "completedAt": { "type": "Date" },
+              "completedBy": { "type": "ObjectId", "ref": "users" }
+            }
+          }
+        },
+        "timeline": {
+          "description": "Embedded - Timeline data",
+          "expectedCompletion": { "type": "Date", "required": true },
+          "actualCompletion": { "type": "Date" },
+          "slaBreached": { "type": "Boolean", "default": false }
+        },
+        "notes": { "type": "String", "maxLength": 2000 },
+        "attachmentCount": { "type": "Number", "default": 0 },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "deletedAt": { "type": "Date", "sparse": true },
+          "createdBy": { "type": "ObjectId", "ref": "users" },
+          "lastModifiedBy": { "type": "ObjectId", "ref": "users" }
+        }
+      },
+      "indexes": [
+        { "fields": { "caseId": 1 }, "unique": true },
+        { "fields": { "patientId": 1, "status": 1 } },
+        { "fields": { "organizationId": 1, "status": 1 } },
+        { "fields": { "referral.referrerId": 1 }, "sparse": true },
+        { "fields": { "priority": 1, "status": 1 } },
+        { "fields": { "timeline.expectedCompletion": 1 } },
+        { "fields": { "workflow.currentStage": 1, "status": 1 } },
+        { "fields": { "caseId": "text", "notes": "text" } }
+      ]
+    },
+    "caseAttachments": {
+      "description": "Separate collection for case attachments",
+      "collection": "caseAttachments",
+      "rationale": "Attachments can be numerous and large",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "caseId": { "type": "ObjectId", "ref": "cases", "required": true },
+        "type": { "type": "String", "enum": ["prescription", "previousReport", "image", "document", "other"], "required": true },
+        "fileName": { "type": "String", "required": true },
+        "fileSize": { "type": "Number" },
+        "mimeType": { "type": "String" },
+        "url": { "type": "String", "required": true },
+        "thumbnailUrl": { "type": "String" },
+        "description": { "type": "String", "maxLength": 200 },
+        "metadata": {
+          "uploadedAt": { "type": "Date", "auto": true },
+          "uploadedBy": { "type": "ObjectId", "ref": "users", "required": true }
+        }
+      },
+      "indexes": [
+        { "fields": { "caseId": 1, "type": 1 } },
+        { "fields": { "metadata.uploadedAt": -1 } }
+      ]
+    },
+    "samples": {
+      "description": "Laboratory sample tracking - optimized structure",
+      "collection": "samples",
+      "documentSizeLimit": "8KB typical, 16KB max",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "sampleId": { "type": "String", "unique": true, "pattern": "^SMP[0-9]{8}$", "auto": true },
+        "barcode": { "type": "String", "unique": true, "sparse": true },
+        "caseId": { "type": "ObjectId", "ref": "cases", "required": true },
+        "patientId": { "type": "ObjectId", "ref": "patients", "required": true },
+        "testIds": { "type": "[ObjectId]", "ref": "tests", "required": true, "maxItems": 20 },
+        "sampleType": { 
+          "type": "String", 
+          "enum": ["blood", "urine", "stool", "saliva", "tissue", "swab", "other"],
+          "required": true
+        },
+        "collection": {
+          "description": "Embedded - Collection details",
+          "collectedAt": { "type": "Date", "required": true },
+          "collectedBy": { "type": "ObjectId", "ref": "users", "required": true },
+          "collectionLocation": {
+            "facilityId": { "type": "ObjectId" },
+            "facilityType": { "type": "String", "enum": ["hospital", "lab", "collectionCenter", "clinic"] },
+            "facilityName": { "type": "String", "denormalized": true }
+          },
+          "method": { "type": "String", "enum": ["venipuncture", "fingerstick", "midstream", "swab", "other"] },
+          "volume": { "type": "String" },
+          "containerType": { "type": "String" }
+        },
+        "processing": {
+          "description": "Embedded - Processing status",
+          "receivedAt": { "type": "Date" },
+          "receivedBy": { "type": "ObjectId", "ref": "users" },
+          "processedAt": { "type": "Date" },
+          "processedBy": { "type": "ObjectId", "ref": "users" },
+          "rejectedAt": { "type": "Date" },
+          "rejectionReason": { "type": "String", "maxLength": 200 }
+        },
+        "storage": {
+          "description": "Embedded - Storage info",
+          "location": { "type": "String" },
+          "temperature": { "type": "String" },
+          "expiryDate": { "type": "Date" }
+        },
+        "status": { 
+          "type": "String", 
+          "enum": ["collected", "intransit", "received", "processing", "completed", "rejected", "expired"],
+          "default": "collected"
+        },
+        "priority": { "type": "String", "enum": ["routine", "urgent", "stat"], "default": "routine" },
+        "chainOfCustodyCount": { "type": "Number", "default": 0 },
+        "qualityControl": {
+          "description": "Embedded - QC flags",
+          "haemolysis": { "type": "Boolean", "default": false },
+          "lipemia": { "type": "Boolean", "default": false },
+          "icterus": { "type": "Boolean", "default": false },
+          "clotted": { "type": "Boolean", "default": false },
+          "insufficient": { "type": "Boolean", "default": false }
+        },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true }
+        }
+      },
+      "indexes": [
+        { "fields": { "sampleId": 1 }, "unique": true },
+        { "fields": { "barcode": 1 }, "unique": true, "sparse": true },
+        { "fields": { "caseId": 1 } },
+        { "fields": { "patientId": 1 } },
+        { "fields": { "status": 1, "priority": 1 } },
+        { "fields": { "collection.collectedAt": 1 } },
+        { "fields": { "sampleId": "text", "barcode": "text" } }
+      ]
+    },
+    "sampleChainOfCustody": {
+      "description": "Separate collection for chain of custody tracking",
+      "collection": "sampleChainOfCustody",
+      "rationale": "Chain of custody can have many entries for audit compliance",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "sampleId": { "type": "ObjectId", "ref": "samples", "required": true },
+        "action": { "type": "String", "required": true },
+        "performedBy": { "type": "ObjectId", "ref": "users", "required": true },
+        "timestamp": { "type": "Date", "required": true },
+        "location": { "type": "String" },
+        "temperature": { "type": "String" },
+        "notes": { "type": "String", "maxLength": 500 },
+        "signature": { "type": "String" },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true }
+        }
+      },
+      "indexes": [
+        { "fields": { "sampleId": 1, "timestamp": -1 } },
+        { "fields": { "performedBy": 1, "timestamp": -1 } }
+      ]
+    },
+    "reports": {
+      "description": "Medical test reports - test results in separate collection",
+      "collection": "reports",
+      "documentSizeLimit": "8KB typical, 16KB max",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "reportId": { "type": "String", "unique": true, "pattern": "^RPT[0-9]{8}$", "auto": true },
+        "caseId": { "type": "ObjectId", "ref": "cases", "required": true },
+        "patientId": { "type": "ObjectId", "ref": "patients", "required": true },
+        "organizationId": { "type": "ObjectId", "ref": "organizations", "required": true },
+        "reportType": { "type": "String", "enum": ["individual", "panel", "comprehensive"], "required": true },
+        "testCount": { "type": "Number", "default": 0 },
+        "summary": {
+          "description": "Embedded - Report summary",
+          "clinicalImpression": { "type": "String", "maxLength": 1000 },
+          "recommendations": { "type": "String", "maxLength": 1000 },
+          "criticalValues": { "type": "[String]", "maxItems": 10 },
+          "followUpRequired": { "type": "Boolean", "default": false }
+        },
+        "status": {
+          "description": "Embedded - Status tracking",
+          "current": { "type": "String", "enum": ["draft", "pending", "partialComplete", "complete", "verified", "released", "amended"], "default": "draft" },
+          "releasedAt": { "type": "Date" },
+          "amendedAt": { "type": "Date" },
+          "amendmentReason": { "type": "String", "maxLength": 200 }
+        },
+        "authorization": {
+          "description": "Embedded - Authorization info",
+          "authorizedBy": { "type": "ObjectId", "ref": "users" },
+          "authorizedAt": { "type": "Date" },
+          "digitalSignature": { "type": "String" }
+        },
+        "delivery": {
+          "description": "Embedded - Delivery tracking",
+          "method": { "type": "String", "enum": ["email", "portal", "print", "api"], "default": "portal" },
+          "deliveredAt": { "type": "Date" },
+          "deliveredTo": { "type": "String" },
+          "accessedAt": { "type": "Date" },
+          "downloadCount": { "type": "Number", "default": 0 }
+        },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "version": { "type": "Number", "default": 1 },
+          "previousVersions": { "type": "[ObjectId]", "ref": "reports", "maxItems": 10 }
+        }
+      },
+      "indexes": [
+        { "fields": { "reportId": 1 }, "unique": true },
+        { "fields": { "caseId": 1 } },
+        { "fields": { "patientId": 1, "status.current": 1 } },
+        { "fields": { "organizationId": 1, "status.current": 1 } },
+        { "fields": { "status.releasedAt": -1 } },
+        { "fields": { "reportId": "text" } }
+      ]
+    },
+    "reportTestResults": {
+      "description": "Separate collection for test results within reports",
+      "collection": "reportTestResults",
+      "rationale": "Test results can be numerous with detailed parameters",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "reportId": { "type": "ObjectId", "ref": "reports", "required": true },
+        "testId": { "type": "ObjectId", "ref": "tests", "required": true },
+        "sampleId": { "type": "ObjectId", "ref": "samples" },
+        "testName": { "type": "String", "required": true, "denormalized": true },
+        "results": [{
+          "parameterId": { "type": "String", "required": true },
+          "parameterName": { "type": "String", "required": true },
+          "value": { "type": "Mixed", "required": true },
+          "unit": { "type": "String" },
+          "normalRange": { "type": "String" },
+          "flag": { "type": "String", "enum": ["normal", "low", "high", "critical", "abnormal"] },
+          "notes": { "type": "String", "maxLength": 200 }
+        }],
+        "performedAt": { "type": "Date" },
+        "performedBy": { "type": "ObjectId", "ref": "users" },
+        "verifiedBy": { "type": "ObjectId", "ref": "users" },
+        "interpretation": { "type": "String", "maxLength": 1000 },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true }
+        }
+      },
+      "indexes": [
+        { "fields": { "reportId": 1 } },
+        { "fields": { "reportId": 1, "testId": 1 }, "unique": true },
+        { "fields": { "testId": 1 } },
+        { "fields": { "results.flag": 1 } }
+      ]
+    },
+    "invoices": {
+      "description": "Billing and invoicing - line items limited",
+      "collection": "invoices",
+      "documentSizeLimit": "8KB typical, 16KB max",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "invoiceId": { "type": "String", "unique": true, "pattern": "^INV[0-9]{8}$", "auto": true },
+        "invoiceNumber": { "type": "String", "unique": true },
+        "caseId": { "type": "ObjectId", "ref": "cases", "sparse": true },
+        "patientId": { "type": "ObjectId", "ref": "patients", "required": true },
+        "organizationId": { "type": "ObjectId", "ref": "organizations", "required": true },
+        "billingType": { "type": "String", "enum": ["case", "test", "package", "consultation", "other"], "required": true },
+        "lineItems": {
+          "description": "Embedded - Limited line items",
+          "type": "[Object]",
+          "maxItems": 50,
+          "schema": {
+            "itemType": { "type": "String", "enum": ["test", "service", "package", "consultation", "discount", "tax"], "required": true },
+            "itemId": { "type": "ObjectId", "sparse": true },
+            "description": { "type": "String", "required": true },
+            "quantity": { "type": "Number", "required": true, "min": 1 },
+            "unitPrice": { "type": "Number", "required": true, "min": 0 },
+            "discount": { "type": "Number", "default": 0, "min": 0 },
+            "tax": { "type": "Number", "default": 0, "min": 0 },
+            "totalPrice": { "type": "Number", "required": true, "min": 0 }
+          }
+        },
+        "pricing": {
+          "description": "Embedded - Pricing summary",
+          "subtotal": { "type": "Number", "required": true, "min": 0 },
+          "totalDiscount": { "type": "Number", "default": 0, "min": 0 },
+          "totalTax": { "type": "Number", "default": 0, "min": 0 },
+          "totalAmount": { "type": "Number", "required": true, "min": 0 },
+          "paidAmount": { "type": "Number", "default": 0, "min": 0 },
+          "balanceAmount": { "type": "Number", "required": true, "min": 0 }
+        },
+        "payment": {
+          "description": "Embedded - Payment status",
+          "status": { "type": "String", "enum": ["draft", "pending", "partial", "paid", "overdue", "cancelled", "refunded"], "default": "draft" },
+          "dueDate": { "type": "Date", "required": true },
+          "paidDate": { "type": "Date" },
+          "paymentMethod": { "type": "String", "enum": ["cash", "card", "upi", "netBanking", "cheque", "insurance", "corporate"] },
+          "transactionId": { "type": "String" }
+        },
+        "insurance": {
+          "description": "Embedded - Insurance details",
+          "provider": { "type": "String" },
+          "policyNumber": { "type": "String" },
+          "claimNumber": { "type": "String" },
+          "approvedAmount": { "type": "Number" },
+          "status": { "type": "String", "enum": ["notApplicable", "pending", "approved", "rejected", "partial"] }
+        },
+        "notes": { "type": "String", "maxLength": 500 },
+        "termsAndConditions": { "type": "String", "maxLength": 1000 },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "createdBy": { "type": "ObjectId", "ref": "users" },
+          "approvedBy": { "type": "ObjectId", "ref": "users" }
+        }
+      },
+      "indexes": [
+        { "fields": { "invoiceId": 1 }, "unique": true },
+        { "fields": { "invoiceNumber": 1 }, "unique": true },
+        { "fields": { "caseId": 1 }, "sparse": true },
+        { "fields": { "patientId": 1, "payment.status": 1 } },
+        { "fields": { "organizationId": 1, "payment.status": 1 } },
+        { "fields": { "payment.dueDate": 1, "payment.status": 1 } },
+        { "fields": { "invoiceId": "text", "invoiceNumber": "text" } }
+      ]
+    },
+    "appointmentSlots": {
+      "description": "Available time slots - special offers moved to separate collection",
+      "collection": "appointmentSlots",
+      "documentSizeLimit": "16KB typical, 64KB max",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "organizationId": { "type": "ObjectId", "ref": "organizations", "required": true },
+        "date": { "type": "Date", "required": true },
+        "slots": {
+          "description": "Embedded - Day's slot configuration",
+          "type": "[Object]",
+          "maxItems": 100,
+          "schema": {
+            "startTime": { "type": "String", "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$", "required": true },
+            "endTime": { "type": "String", "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$", "required": true },
+            "capacity": { "type": "Number", "required": true, "min": 1, "max": 100 },
+            "booked": { "type": "Number", "default": 0, "min": 0 },
+            "available": { "type": "Number" },
+            "type": { "type": "String", "enum": ["regular", "urgent", "homeCollection"], "default": "regular" },
+            "isBlocked": { "type": "Boolean", "default": false },
+            "blockReason": { "type": "String" },
+            "price": { "type": "Number" },
+            "duration": { "type": "Number" }
+          }
+        },
+        "facilityInfo": {
+          "description": "Embedded - Basic facility info",
+          "facilityName": { "type": "String" },
+          "facilityId": { "type": "ObjectId", "ref": "organizations" },
+          "specialOffersCount": { "type": "Number", "default": 0 }
+        },
+        "schedule": {
+          "description": "Embedded - Schedule metadata",
+          "templateId": { "type": "ObjectId", "ref": "scheduleTemplates", "sparse": true },
+          "isHoliday": { "type": "Boolean", "default": false },
+          "holidayName": { "type": "String" }
+        },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "generatedBy": { "type": "ObjectId", "ref": "users" },
+          "lastModifiedBy": { "type": "ObjectId", "ref": "users" }
+        }
+      },
+      "indexes": [
+        { "fields": { "organizationId": 1, "date": 1 }, "unique": true },
+        { "fields": { "date": 1, "schedule.isHoliday": 1 } },
+        { "fields": { "schedule.templateId": 1 }, "sparse": true }
+      ]
+    },
+    "slotSpecialOffers": {
+      "description": "Special offers for appointment slots",
+      "collection": "slotSpecialOffers",
+      "rationale": "Special offers can change frequently and be numerous",
+      "fields": {
+        "_id": { "type": "ObjectId", "auto": true },
+        "organizationId": { "type": "ObjectId", "ref": "organizations", "required": true },
+        "title": { "type": "String", "required": true },
+        "description": { "type": "String", "required": true },
+        "offerType": { "type": "String", "enum": ["percentage", "fixed", "bundle", "freeAddon"], "required": true },
+        "discount": { "type": "Number", "min": 0 },
+        "conditions": {
+          "minAmount": { "type": "Number" },
+          "applicableTests": { "type": "[ObjectId]", "ref": "tests" },
+          "applicableCategories": { "type": "[String]" },
+          "dayOfWeek": { "type": "[Number]", "min": 0, "max": 6 },
+          "timeSlots": { "type": "[String]" }
+        },
+        "validity": {
+          "startDate": { "type": "Date", "required": true },
+          "endDate": { "type": "Date", "required": true }
+        },
+        "usageLimit": {
+          "total": { "type": "Number" },
+          "perUser": { "type": "Number" },
+          "used": { "type": "Number", "default": 0 }
+        },
+        "isActive": { "type": "Boolean", "default": true },
+        "metadata": {
+          "createdAt": { "type": "Date", "auto": true },
+          "updatedAt": { "type": "Date", "auto": true },
+          "createdBy": { "type": "ObjectId", "ref": "users" }
+        }
+      },
+      "indexes": [
+        { "fields": { "organizationId": 1, "isActive": 1, "validity.endDate": -1 } },
+        { "fields": { "validity.startDate": 1, "validity.endDate": 1 } },
+        { "fields": { "conditions.applicableTests": 1 } },
+        { "fields": { "title": "text", "description": "text" } }
+      ]
+    }
+  },
+  "migrationStrategy": {
+    "description": "Strategy for migrating from embedded to separate collections",
+    "steps": [
+      {
+        "phase": 1,
+        "name": "Extract Organization Arrays",
+        "collections": ["organizationDoctors", "organizationReviews", "organizationTestPrices", "organizationCertifications", "organizationGallery"],
+        "approach": "Use aggregation pipeline to extract embedded arrays into new collections"
+      },
+      {
+        "phase": 2,
+        "name": "Extract Test Sections",
+        "collections": ["testSections"],
+        "approach": "Move test.sections array to separate collection with testId reference"
+      },
+      {
+        "phase": 3,
+        "name": "Extract Appointment Tests",
+        "collections": ["appointmentTests"],
+        "approach": "Move appointment.testsSnapshot to separate collection"
+      },
+      {
+        "phase": 4,
+        "name": "Extract Report Results",
+        "collections": ["reportTestResults"],
+        "approach": "Move report.tests array to separate collection"
+      },
+      {
+        "phase": 5,
+        "name": "Extract Case Attachments",
+        "collections": ["caseAttachments"],
+        "approach": "Move case.attachments to separate collection"
+      },
+      {
+        "phase": 6,
+        "name": "Extract Sample Chain of Custody",
+        "collections": ["sampleChainOfCustody"],
+        "approach": "Move sample.chainOfCustody to separate collection"
+      },
+      {
+        "phase": 7,
+        "name": "Extract Slot Special Offers",
+        "collections": ["slotSpecialOffers"],
+        "approach": "Move appointmentSlots.facilityInfo.specialOffers to separate collection"
+      }
+    ],
+    "rollbackPlan": {
+      "description": "Maintain both structures during transition",
+      "dualWrite": "Write to both embedded and separate collections during migration",
+      "validation": "Compare results from both structures before cutover",
+      "fallback": "Keep embedded data for 30 days after migration"
+    }
+  },
+  "performanceGuidelines": {
+    "aggregationPipelines": {
+      "description": "Optimized aggregation patterns for separated collections",
+      "examples": [
+        {
+          "name": "Get Organization with Reviews",
+          "pipeline": [
+            "{ $match: { organizationId: ObjectId } }",
+            "{ $lookup: { from: 'organizationReviews', localField: '_id', foreignField: 'organizationId', as: 'recentReviews' } }",
+            "{ $addFields: { recentReviews: { $slice: ['$recentReviews', -5] } } }"
+          ]
+        },
+        {
+          "name": "Get Test with Pricing",
+          "pipeline": [
+            "{ $match: { testId: String } }",
+            "{ $lookup: { from: 'organizationTestPrices', localField: '_id', foreignField: 'testId', as: 'pricing' } }",
+            "{ $unwind: { path: '$pricing', preserveNullAndEmptyArrays: true } }"
+          ]
+        }
+      ]
+    },
+    "indexingStrategy": {
+      "compound": "Use compound indexes for common query patterns",
+      "covering": "Create covering indexes for mobile API queries",
+      "partial": "Use partial indexes for active/verified filters",
+      "text": "Maintain text indexes for search functionality"
+    },
+    "cachingRecommendations": {
+      "redis": "Cache frequently accessed reference data",
+      "applicationCache": "Cache test catalog and organization details",
+      "ttl": "Set appropriate TTL based on data volatility"
+    }
+  }
+}
