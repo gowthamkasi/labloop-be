@@ -31,13 +31,7 @@
     /* Modules */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@/domain/*": ["src/domain/*"],
-      "@/application/*": ["src/application/*"],
-      "@/infrastructure/*": ["src/infrastructure/*"],
-      "@/presentation/*": ["src/presentation/*"],
-      "@/shared/*": ["src/shared/*"],
-      "@/config/*": ["src/config/*"]
+      "@/*": ["src/*"]
     },
     "resolveJsonModule": true,
 
@@ -58,14 +52,6 @@
     /* Completeness */
     "skipLibCheck": true
   },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "tests",
-    "**/*.test.ts",
-    "**/*.spec.ts"
-  ]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "tests", "**/*.test.ts", "**/*.spec.ts"]
 }
