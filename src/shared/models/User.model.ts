@@ -1,135 +1,19 @@
-import { Schema, model, Types, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
+import { UserType, UserRole, Gender, BloodGroup } from '../types/enums.js';
+import { User, UserProfile, HealthProfile, Employment, Permissions, Authentication } from '../interfaces/User.interface.js';
 
-// Enums
-export enum UserType {
-  B2B = 'b2b',
-  B2C = 'b2c'
-}
-
-export enum UserRole {
-  // B2B Roles
-  ADMIN = 'admin',
-  LAB_MANAGER = 'labManager', 
-  TECHNICIAN = 'technician',
-  COLLECTION_AGENT = 'collectionAgent',
-  RECEPTIONIST = 'receptionist',
-  QUALITY_CONTROLLER = 'qualityController',
-  LAB_ASSISTANT = 'labAssistant',
-  
-  // B2C Roles
-  CONSUMER = 'consumer',
-  FAMILY_MANAGER = 'familyManager'
-}
-
-export enum Gender {
-  MALE = 'male',
-  FEMALE = 'female', 
-  OTHER = 'other'
-}
-
-export enum BloodGroup {
-  A_POSITIVE = 'A+',
-  A_NEGATIVE = 'A-',
-  B_POSITIVE = 'B+',
-  B_NEGATIVE = 'B-',
-  AB_POSITIVE = 'AB+',
-  AB_NEGATIVE = 'AB-',
-  O_POSITIVE = 'O+',
-  O_NEGATIVE = 'O-'
-}
-
-// Interfaces
-export interface Address {
-  street?: string;
-  city?: string;
-  state?: string;
-  zipCode?: string;
-  country?: string;
-  coordinates?: {
-    type: 'Point';
-    coordinates: [number, number]; // [longitude, latitude]
+// MongoDB Document interface - handles differences between TS and Mongo types
+export interface UserMongoDoc 
+  extends Document,
+    Omit<User, '_id' | 'managedPatients' | 'employment'> {
+  managedPatients?: Types.ObjectId[];
+  employment?: Omit<Employment, 'organizationId' | 'reportingTo'> & {
+    organizationId?: Types.ObjectId;
+    reportingTo?: Types.ObjectId;
   };
 }
 
-export interface UserProfile {
-  firstName: string;
-  lastName: string;
-  dateOfBirth?: Date;
-  gender?: Gender;
-  mobileNumber?: string;
-  profilePicture?: string;
-  address?: Address;
-}
-
-export interface HealthProfile {
-  height?: number; // cm
-  weight?: number; // kg
-  bloodGroup?: BloodGroup;
-  allergies?: string[];
-  medications?: string[];
-  medicalConditions?: string[];
-  emergencyContact?: {
-    name?: string;
-    phone?: string;
-    relationship?: string;
-  };
-}
-
-export interface Employment {
-  organizationId?: Types.ObjectId;
-  designation?: string;
-  department?: string;
-  joiningDate?: Date;
-  reportingTo?: Types.ObjectId;
-}
-
-export interface Permissions {
-  canCreateCases: boolean;
-  canEditCases: boolean;
-  canDeleteCases: boolean;
-  canCreateReports: boolean;
-  canApproveReports: boolean;
-  canManageUsers: boolean;
-  canViewAnalytics: boolean;
-  canManageInventory: boolean;
-}
-
-export interface Authentication {
-  lastLoginAt?: Date;
-  lastPasswordChange?: Date;
-  failedLoginAttempts: number;
-  accountLocked: boolean;
-  lockedUntil?: Date;
-  emailVerified: boolean;
-  mobileVerified: boolean;
-  twoFactorEnabled: boolean;
-}
-
-export interface User {
-  userId: string; // USR123456 format
-  username: string;
-  email: string;
-  passwordHash: string;
-  userType: UserType;
-  role: UserRole;
-  managedPatients?: Types.ObjectId[]; // For consumer users managing family members
-  profile: UserProfile;
-  healthProfile?: HealthProfile; // Mainly for B2C users
-  employment?: Employment; // Mainly for B2B users
-  permissions: Permissions;
-  authentication: Authentication;
-  
-  // Audit fields
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date;
-  createdBy?: string;
-  updatedBy?: string;
-  isActive: boolean;
-  version: number;
-}
-
-export interface UserDocument extends User, Document {
+export interface UserDocument extends UserMongoDoc {
   generateUserId(): string;
   getFullName(): string;
   canManagePatient(patientId: Types.ObjectId): boolean;
@@ -138,7 +22,7 @@ export interface UserDocument extends User, Document {
   restore(): Promise<this>;
 }
 
-// Schemas
+// Embedded Schemas
 const UserProfileSchema = new Schema<UserProfile>({
   firstName: { type: String, required: true, trim: true },
   lastName: { type: String, required: true, trim: true },
@@ -184,7 +68,7 @@ const HealthProfileSchema = new Schema<HealthProfile>({
   }
 }, { _id: false });
 
-const EmploymentSchema = new Schema<Employment>({
+const EmploymentSchema = new Schema({
   organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', sparse: true },
   designation: { type: String, maxlength: 100 },
   department: { type: String, maxlength: 100 },
@@ -214,6 +98,7 @@ const AuthenticationSchema = new Schema<Authentication>({
   twoFactorEnabled: { type: Boolean, default: false }
 }, { _id: false });
 
+// Main User Schema
 const UserSchema = new Schema<UserDocument>({
   userId: { 
     type: String, 

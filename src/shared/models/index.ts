@@ -1,12 +1,7 @@
-// User Model exports
-export { UserModel, UserType, UserRole, Gender, BloodGroup } from './User.model.js';
-export type { 
-  User, 
-  UserDocument, 
-  UserProfile, 
-  HealthProfile, 
-  Employment, 
-  Permissions, 
-  Authentication, 
-  Address 
-} from './User.model.js';
+// Model exports
+export { UserModel } from './User.model.js';
+export type { UserMongoDoc, UserDocument } from './User.model.js';
+
+// Interface and type exports
+export * from '../interfaces/index.js';
+export * from '../types/index.js';
