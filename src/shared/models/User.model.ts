@@ -272,9 +272,9 @@ UserSchema.pre('save', async function() {
 UserSchema.index({ userId: 1 }, { unique: true });
 UserSchema.index({ email: 1 }, { unique: true });
 UserSchema.index({ username: 1 }, { unique: true });
-UserSchema.index({ userType: 1, role: 1, isActive: 1 });
+UserSchema.index({ userType: 1, role: 1, 'status.isActive': 1 });
 UserSchema.index({ 'profile.mobileNumber': 1 }, { sparse: true });
-UserSchema.index({ 'employment.organizationId': 1, isActive: 1 }, { sparse: true });
+UserSchema.index({ 'employment.organizationId': 1, 'status.isActive': 1 }, { sparse: true });
 UserSchema.index({ 'authentication.emailVerified': 1 });
 UserSchema.index({ 
   username: 'text', 

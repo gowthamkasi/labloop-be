@@ -118,7 +118,7 @@ const OrganizationSchema = new Schema<OrganizationMongoDoc>({
   organizationId: { 
     type: String, 
     unique: true, 
-    match: /^ORG\d{6}$/,
+    match: /^ORG\d{8}$/,
     required: true
   },
   name: { 

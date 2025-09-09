@@ -188,7 +188,7 @@ CaseSchema.pre('save', async function() {
 CaseSchema.index({ caseId: 1 }, { unique: true });
 CaseSchema.index({ patientId: 1, status: 1 });
 CaseSchema.index({ organizationId: 1, status: 1 });
-CaseSchema.index({ 'referral.referrerId': 1 });
+CaseSchema.index({ 'referral.referrerId': 1 }, { sparse: true });
 CaseSchema.index({ priority: 1, status: 1 });
 CaseSchema.index({ 'timeline.expectedCompletion': 1 });
 CaseSchema.index({ 'workflow.currentStage': 1, status: 1 });

@@ -88,7 +88,7 @@ const HospitalSettingsSchema = new Schema<HospitalSettings>({
 const HospitalSchema = new Schema<HospitalMongoDoc>({
   hospitalId: { 
     type: String, 
-    match: /^HOS\d{8}$/,
+    match: /^HSP\d{8}$/,
     required: true
   },
   name: { type: String, required: true, trim: true },
@@ -222,7 +222,7 @@ HospitalSchema.pre('save', function() {
 
 // Methods
 HospitalSchema.methods['generateHospitalId'] = async function(): Promise<string> {
-  return await generateIdWithErrorHandling('HOS', 'Hospital', 'hospitalId');
+  return await generateIdWithErrorHandling('HSP', 'Hospital', 'hospitalId');
 };
 
 HospitalSchema.methods['getOperatingStatus'] = function(): { isOpen: boolean; nextChange?: string } {
@@ -272,7 +272,7 @@ HospitalSchema.methods['restore'] = function() {
 // Pre-save middleware for hospitalId generation
 HospitalSchema.pre('save', async function() {
   if (this.isNew && !this['hospitalId']) {
-    this['hospitalId'] = await generateIdWithErrorHandling('HOS', 'Hospital', 'hospitalId');
+    this['hospitalId'] = await generateIdWithErrorHandling('HSP', 'Hospital', 'hospitalId');
   }
 });
 
