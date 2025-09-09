@@ -68,8 +68,7 @@ const PatientContactSchema = new Schema<PatientContact>({
   email: {
     type: String,
     lowercase: true,
-    match: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-    sparse: true
+    match: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
   },
   address: PatientContactAddressSchema
 }, { _id: false });
@@ -136,12 +135,11 @@ const PatientStatisticsSchema = new Schema<PatientStatistics>({
 const PatientSchema = new Schema<PatientMongoDoc>({
   patientId: { 
     type: String, 
-    unique: true, 
     match: /^PAT\d{8}$/,
     required: true
   },
-  mrn: { type: String, sparse: true },
-  primaryUserId: { type: Schema.Types.ObjectId, ref: 'User', sparse: true },
+  mrn: { type: String },
+  primaryUserId: { type: Schema.Types.ObjectId, ref: 'User' },
   authorizedUsers: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   linkedConsumerAccount: { type: Schema.Types.ObjectId, ref: 'User', sparse: true },
   demographics: { type: PatientDemographicsSchema, required: true },

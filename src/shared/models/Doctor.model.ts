@@ -108,13 +108,11 @@ const DoctorAchievementsSchema = new Schema<DoctorAchievements>({
 const DoctorSchema = new Schema<DoctorMongoDoc>({
   doctorId: { 
     type: String, 
-    unique: true, 
-    match: /^DOC\d{6}$/,
+    match: /^DOC\d{8}$/,
     required: true
   },
   registrationNumber: { 
     type: String, 
-    unique: true, 
     required: true,
     trim: true,
     uppercase: true
@@ -125,8 +123,7 @@ const DoctorSchema = new Schema<DoctorMongoDoc>({
   contact: { type: DoctorContactSchema, required: true },
   practiceType: {
     type: String,
-    enum: ['independent', 'hospital', 'clinic', 'multisite'],
-    sparse: true
+    enum: ['independent', 'hospital', 'clinic', 'multisite']
   },
   consultationModes: DoctorConsultationModesSchema,
   languages: {
@@ -166,8 +163,7 @@ const DoctorSchema = new Schema<DoctorMongoDoc>({
   },
   isActive: {
     type: Boolean,
-    default: true,
-    index: true
+    default: true
   },
   version: {
     type: Number,

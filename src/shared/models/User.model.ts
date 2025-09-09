@@ -30,8 +30,7 @@ const UserProfileSchema = new Schema<UserProfile>({
   gender: { type: String, enum: Object.values(Gender) },
   mobileNumber: { 
     type: String, 
-    match: /^\+?[1-9]\d{1,14}$/,
-    sparse: true 
+    match: /^\+?[1-9]\d{1,14}$/
   },
   profilePicture: { type: String, maxlength: 500 },
   address: {
@@ -69,7 +68,7 @@ const HealthProfileSchema = new Schema<HealthProfile>({
 }, { _id: false });
 
 const EmploymentSchema = new Schema({
-  organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', sparse: true },
+  organizationId: { type: Schema.Types.ObjectId, ref: 'Organization' },
   designation: { type: String, maxlength: 100 },
   department: { type: String, maxlength: 100 },
   joiningDate: Date,
@@ -124,13 +123,11 @@ const UserStatusSchema = new Schema<UserStatus>({
 const UserSchema = new Schema<UserMongoDoc>({
   userId: { 
     type: String, 
-    unique: true, 
     match: /^USR\d{8}$/,
     required: true
   },
   username: { 
     type: String, 
-    unique: true, 
     required: true, 
     minlength: 3, 
     maxlength: 50,
@@ -138,7 +135,6 @@ const UserSchema = new Schema<UserMongoDoc>({
   },
   email: { 
     type: String, 
-    unique: true, 
     required: true,
     lowercase: true,
     match: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
@@ -188,8 +184,7 @@ const UserSchema = new Schema<UserMongoDoc>({
   },
   isActive: {
     type: Boolean,
-    default: true,
-    index: true
+    default: true
   },
   version: {
     type: Number,

@@ -31,7 +31,7 @@ const HospitalContactSchema = new Schema<HospitalContact>({
 }, { _id: false });
 
 const HospitalLicensingSchema = new Schema<HospitalLicensing>({
-  licenseNumber: { type: String, required: true, unique: true },
+  licenseNumber: { type: String, required: true },
   accreditation: String,
   validUntil: Date,
   issuingAuthority: String
@@ -70,7 +70,6 @@ const HospitalSettingsSchema = new Schema<HospitalSettings>({
 const HospitalSchema = new Schema<HospitalMongoDoc>({
   hospitalId: { 
     type: String, 
-    unique: true, 
     match: /^HOS\d{8}$/,
     required: true
   },
@@ -134,7 +133,7 @@ const HospitalSchema = new Schema<HospitalMongoDoc>({
   occupancyRate: { type: Number, default: 0, min: 0, max: 100 },
   
   // Status
-  isActive: { type: Boolean, default: true, index: true },
+  isActive: { type: Boolean, default: true },
   isVerified: { type: Boolean, default: false },
   verifiedAt: Date,
   

@@ -32,7 +32,7 @@ const LabContactSchema = new Schema<LabContact>({
 }, { _id: false });
 
 const LabLicensingSchema = new Schema<LabLicensing>({
-  licenseNumber: { type: String, required: true, unique: true },
+  licenseNumber: { type: String, required: true },
   nabl: String,
   iso: String,
   cap: String,
@@ -82,7 +82,6 @@ const LabSettingsSchema = new Schema<LabSettings>({
 const LabSchema = new Schema<LabMongoDoc>({
   labId: { 
     type: String, 
-    unique: true, 
     match: /^LAB\d{8}$/,
     required: true
   },
@@ -125,7 +124,7 @@ const LabSchema = new Schema<LabMongoDoc>({
   settings: { type: LabSettingsSchema, default: {} },
   
   // Relationships
-  parentHospital: { type: Schema.Types.ObjectId, ref: 'Hospital', sparse: true },
+  parentHospital: { type: Schema.Types.ObjectId, ref: 'Hospital' },
   attachedCollectionCenters: [{ type: Schema.Types.ObjectId, ref: 'CollectionCenter' }],
   parentNetwork: { type: Schema.Types.ObjectId, ref: 'HealthcareNetwork', sparse: true },
   
@@ -160,7 +159,7 @@ const LabSchema = new Schema<LabMongoDoc>({
   linkedin: String,
   
   // Status
-  isActive: { type: Boolean, default: true, index: true },
+  isActive: { type: Boolean, default: true },
   isVerified: { type: Boolean, default: false },
   verifiedAt: Date,
   
