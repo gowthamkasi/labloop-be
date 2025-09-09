@@ -220,11 +220,13 @@ const OrganizationSchema = new Schema<OrganizationMongoDoc>({
     sparse: true
   },
   createdBy: {
-    type: String,
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     sparse: true
   },
   updatedBy: {
-    type: String,
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     sparse: true
   },
   isActive: {

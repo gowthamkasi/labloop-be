@@ -74,10 +74,46 @@ const PatientContactSchema = new Schema<PatientContact>({
 }, { _id: false });
 
 const PatientMedicalHistorySchema = new Schema<PatientMedicalHistory>({
-  allergies: [{ type: String, maxlength: 100 }],
-  medications: [{ type: String, maxlength: 100 }],
-  conditions: [{ type: String, maxlength: 100 }],
-  surgeries: [{ type: String, maxlength: 200 }],
+  allergies: [{ 
+    type: String, 
+    maxlength: 100,
+    validate: {
+      validator: function(arr: string[]) {
+        return !arr || arr.length <= 20;
+      },
+      message: 'Cannot have more than 20 allergies'
+    }
+  }],
+  medications: [{ 
+    type: String, 
+    maxlength: 100,
+    validate: {
+      validator: function(arr: string[]) {
+        return !arr || arr.length <= 20;
+      },
+      message: 'Cannot have more than 20 medications'
+    }
+  }],
+  conditions: [{ 
+    type: String, 
+    maxlength: 100,
+    validate: {
+      validator: function(arr: string[]) {
+        return !arr || arr.length <= 20;
+      },
+      message: 'Cannot have more than 20 conditions'
+    }
+  }],
+  surgeries: [{ 
+    type: String, 
+    maxlength: 200,
+    validate: {
+      validator: function(arr: string[]) {
+        return !arr || arr.length <= 10;
+      },
+      message: 'Cannot have more than 10 surgeries'
+    }
+  }],
   familyHistory: { type: Schema.Types.Mixed }
 }, { _id: false });
 
@@ -140,13 +176,30 @@ const PatientSchema = new Schema<PatientMongoDoc>({
   },
   mrn: { type: String },
   primaryUserId: { type: Schema.Types.ObjectId, ref: 'User' },
-  authorizedUsers: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  authorizedUsers: [{ 
+    type: Schema.Types.ObjectId, 
+    ref: 'User',
+    validate: {
+      validator: function(v: Types.ObjectId[]) {
+        return !v || v.length <= 10;
+      },
+      message: 'Cannot have more than 10 authorized users'
+    }
+  }],
   linkedConsumerAccount: { type: Schema.Types.ObjectId, ref: 'User', sparse: true },
   demographics: { type: PatientDemographicsSchema, required: true },
   contact: { type: PatientContactSchema, required: true },
   medicalHistory: PatientMedicalHistorySchema,
   insurance: PatientInsuranceSchema,
-  referralChain: [PatientReferralChainItemSchema],
+  referralChain: [{
+    type: PatientReferralChainItemSchema,
+    validate: {
+      validator: function(v: unknown[]) {
+        return !v || v.length <= 50;
+      },
+      message: 'Cannot have more than 50 referral chain items'
+    }
+  }],
   currentReferralSource: PatientCurrentReferralSourceSchema,
   consent: PatientConsentSchema,
   statistics: PatientStatisticsSchema,
@@ -172,11 +225,13 @@ const PatientSchema = new Schema<PatientMongoDoc>({
     sparse: true
   },
   createdBy: {
-    type: String,
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     sparse: true
   },
   updatedBy: {
-    type: String,
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     sparse: true
   }
 });

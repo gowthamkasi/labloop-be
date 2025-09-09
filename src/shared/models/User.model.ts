@@ -57,9 +57,36 @@ const HealthProfileSchema = new Schema<HealthProfile>({
   height: { type: Number, min: 0, max: 300 },
   weight: { type: Number, min: 0, max: 500 },
   bloodGroup: { type: String, enum: Object.values(BloodGroup) },
-  allergies: [{ type: String, maxlength: 100 }],
-  medications: [{ type: String, maxlength: 100 }],
-  medicalConditions: [{ type: String, maxlength: 100 }],
+  allergies: [{ 
+    type: String, 
+    maxlength: 100,
+    validate: {
+      validator: function(arr: string[]) {
+        return !arr || arr.length <= 20;
+      },
+      message: 'Cannot have more than 20 allergies'
+    }
+  }],
+  medications: [{ 
+    type: String, 
+    maxlength: 100,
+    validate: {
+      validator: function(arr: string[]) {
+        return !arr || arr.length <= 20;
+      },
+      message: 'Cannot have more than 20 medications'
+    }
+  }],
+  medicalConditions: [{ 
+    type: String, 
+    maxlength: 100,
+    validate: {
+      validator: function(arr: string[]) {
+        return !arr || arr.length <= 20;
+      },
+      message: 'Cannot have more than 20 medical conditions'
+    }
+  }],
   emergencyContact: {
     name: String,
     phone: String,
@@ -175,11 +202,13 @@ const UserSchema = new Schema<UserMongoDoc>({
     sparse: true
   },
   createdBy: {
-    type: String,
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     sparse: true
   },
   updatedBy: {
-    type: String,
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     sparse: true
   },
   isActive: {

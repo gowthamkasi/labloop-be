@@ -178,11 +178,13 @@ const LabSchema = new Schema<LabMongoDoc>({
     sparse: true
   },
   createdBy: {
-    type: String,
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     sparse: true
   },
   updatedBy: {
-    type: String,
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     sparse: true
   },
   version: {

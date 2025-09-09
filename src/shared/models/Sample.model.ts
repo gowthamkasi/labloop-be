@@ -104,7 +104,13 @@ const SampleSchema = new Schema<SampleMongoDoc>({
   testIds: [{ 
     type: Schema.Types.ObjectId, 
     ref: 'Test',
-    required: true
+    required: true,
+    validate: {
+      validator: function(v: Types.ObjectId[]) {
+        return v && v.length > 0 && v.length <= 20;
+      },
+      message: 'Must have between 1 and 20 test IDs'
+    }
   }],
   sampleType: {
     type: String,

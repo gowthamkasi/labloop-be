@@ -152,11 +152,13 @@ const HospitalSchema = new Schema<HospitalMongoDoc>({
     sparse: true
   },
   createdBy: {
-    type: String,
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     sparse: true
   },
   updatedBy: {
-    type: String,
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     sparse: true
   },
   version: {
