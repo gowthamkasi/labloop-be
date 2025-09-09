@@ -54,8 +54,26 @@ const HospitalOperationsSchema = new Schema<HospitalOperations>({
   },
   emergencyServices: { type: Boolean, default: false },
   bedCapacity: { type: Number, min: 0 },
-  departments: [{ type: String, maxlength: 100 }],
-  specializations: [{ type: String, maxlength: 100 }]
+  departments: [{ 
+    type: String, 
+    maxlength: 100,
+    validate: {
+      validator: function(v: string[]) {
+        return !v || v.length <= 50;
+      },
+      message: 'Cannot have more than 50 departments'
+    }
+  }],
+  specializations: [{ 
+    type: String, 
+    maxlength: 100,
+    validate: {
+      validator: function(v: string[]) {
+        return !v || v.length <= 30;
+      },
+      message: 'Cannot have more than 30 specializations'
+    }
+  }]
 }, { _id: false });
 
 const HospitalSettingsSchema = new Schema<HospitalSettings>({
@@ -119,9 +137,36 @@ const HospitalSchema = new Schema<HospitalMongoDoc>({
   reviewCount: { type: Number, default: 0 },
   averageRating: { type: Number, default: 0, min: 0, max: 5 },
   priceRange: { type: String, enum: ['$', '$$', '$$$'], default: '$$' },
-  features: [{ type: String, maxlength: 100 }],
-  services: [{ type: String, maxlength: 100 }],
-  amenities: [{ type: String, maxlength: 100 }],
+  features: [{ 
+    type: String, 
+    maxlength: 100,
+    validate: {
+      validator: function(v: string[]) {
+        return !v || v.length <= 10;
+      },
+      message: 'Cannot have more than 10 features'
+    }
+  }],
+  services: [{ 
+    type: String, 
+    maxlength: 100,
+    validate: {
+      validator: function(v: string[]) {
+        return !v || v.length <= 50;
+      },
+      message: 'Cannot have more than 50 services'
+    }
+  }],
+  amenities: [{ 
+    type: String, 
+    maxlength: 100,
+    validate: {
+      validator: function(v: string[]) {
+        return !v || v.length <= 15;
+      },
+      message: 'Cannot have more than 15 amenities'
+    }
+  }],
   thumbnail: String,
   acceptsInsurance: { type: Boolean, default: true },
   description: { type: String, maxlength: 1000 },

@@ -26,7 +26,7 @@
       "documentSizeLimit": "16KB typical, 64KB max",
       "fields": {
         "_id": { "type": "ObjectId", "auto": true },
-        "userId": { "type": "String", "unique": true, "pattern": "^USR[0-9]{6}$", "auto": true },
+        "userId": { "type": "String", "unique": true, "pattern": "^USR[0-9]{8}$", "auto": true },
         "username": { "type": "String", "unique": true, "required": true, "minLength": 3, "maxLength": 50 },
         "email": { "type": "String", "unique": true, "required": true, "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" },
         "passwordHash": { "type": "String", "required": true, "encrypted": true },
@@ -76,7 +76,7 @@
           "description": "Embedded - Critical health data, frequently accessed",
           "height": { "type": "Number", "min": 0, "max": 300 },
           "weight": { "type": "Number", "min": 0, "max": 500 },
-          "bloodGroup": { "type": "String", "enum": ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] },
+          "bloodGroup": { "type": "String", "enum": ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "Unknown"] },
           "allergies": { "type": "[String]", "maxItems": 20 },
           "medications": { "type": "[String]", "maxItems": 20 },
           "medicalConditions": { "type": "[String]", "maxItems": 20 },
@@ -145,7 +145,7 @@
       "documentSizeLimit": "16KB typical, 32KB max",
       "fields": {
         "_id": { "type": "ObjectId", "auto": true },
-        "patientId": { "type": "String", "unique": true, "pattern": "^PAT[0-9]{6}$", "auto": true },
+        "patientId": { "type": "String", "unique": true, "pattern": "^PAT[0-9]{8}$", "auto": true },
         "mrn": { "type": "String", "unique": true, "sparse": true },
         "primaryUserId": { 
           "type": "ObjectId", 
@@ -276,7 +276,7 @@
       "documentSizeLimit": "16KB typical, 64KB max",
       "fields": {
         "_id": { "type": "ObjectId", "auto": true },
-        "hospitalId": { "type": "String", "unique": true, "pattern": "^HSP[0-9]{6}$", "auto": true },
+        "hospitalId": { "type": "String", "unique": true, "pattern": "^HSP[0-9]{8}$", "auto": true },
         "hospitalType": { 
           "type": "String", 
           "enum": ["general", "specialty", "multiSpecialty", "teaching", "research"],
@@ -433,7 +433,7 @@
       "documentSizeLimit": "16KB typical, 64KB max",
       "fields": {
         "_id": { "type": "ObjectId", "auto": true },
-        "labId": { "type": "String", "unique": true, "pattern": "^LAB[0-9]{6}$", "auto": true },
+        "labId": { "type": "String", "unique": true, "pattern": "^LAB[0-9]{8}$", "auto": true },
         "labType": { 
           "type": "String", 
           "enum": ["diagnostic", "pathology", "radiology", "combined", "specialized"],
@@ -581,7 +581,7 @@
       "documentSizeLimit": "8KB typical, 16KB max",
       "fields": {
         "_id": { "type": "ObjectId", "auto": true },
-        "centerId": { "type": "String", "unique": true, "pattern": "^COL[0-9]{6}$", "auto": true },
+        "centerId": { "type": "String", "unique": true, "pattern": "^COL[0-9]{8}$", "auto": true },
         "centerType": {
           "type": "String",
           "enum": ["standalone", "labAttached", "mobile", "kiosk"],
@@ -656,7 +656,7 @@
       "documentSizeLimit": "8KB typical, 16KB max",
       "fields": {
         "_id": { "type": "ObjectId", "auto": true },
-        "clinicId": { "type": "String", "unique": true, "pattern": "^CLN[0-9]{6}$", "auto": true },
+        "clinicId": { "type": "String", "unique": true, "pattern": "^CLN[0-9]{8}$", "auto": true },
         "clinicType": {
           "type": "String",
           "enum": ["general", "specialty", "polyclinic", "daycare", "urgent"],
@@ -735,7 +735,7 @@
       "documentSizeLimit": "8KB typical, 16KB max",
       "fields": {
         "_id": { "type": "ObjectId", "auto": true },
-        "doctorId": { "type": "String", "unique": true, "pattern": "^DOC[0-9]{6}$", "auto": true },
+        "doctorId": { "type": "String", "unique": true, "pattern": "^DOC[0-9]{8}$", "auto": true },
         "registrationNumber": { "type": "String", "unique": true, "required": true },
         "personalInfo": {
           "firstName": { "type": "String", "required": true },
@@ -948,7 +948,7 @@
       "rationale": "Reviews can accumulate indefinitely and need separate management",
       "fields": {
         "_id": { "type": "ObjectId", "auto": true },
-        "reviewId": { "type": "String", "unique": true, "pattern": "^REV[0-9]{10}$", "auto": true },
+        "reviewId": { "type": "String", "unique": true, "pattern": "^REV[0-9]{8}$", "auto": true },
         "organizationId": { "type": "ObjectId", "ref": "organizations", "required": true },
         "patientId": { "type": "ObjectId", "ref": "patients", "sparse": true },
         "patientName": { "type": "String", "required": true },
@@ -1100,7 +1100,7 @@
       "documentSizeLimit": "8KB typical, 32KB max",
       "fields": {
         "_id": { "type": "ObjectId", "auto": true },
-        "testId": { "type": "String", "unique": true, "pattern": "^TST[0-9]{6}$", "auto": true },
+        "testId": { "type": "String", "unique": true, "pattern": "^TST[0-9]{8}$", "auto": true },
         "name": { "type": "String", "required": true },
         "shortName": { "type": "String", "required": true },
         "category": { 
@@ -1251,7 +1251,7 @@
       "documentSizeLimit": "8KB typical, 16KB max",
       "fields": {
         "_id": { "type": "ObjectId", "auto": true },
-        "appointmentId": { "type": "String", "unique": true, "pattern": "^APT[0-9]{6}$", "auto": true },
+        "appointmentId": { "type": "String", "unique": true, "pattern": "^APT[0-9]{8}$", "auto": true },
         "patientId": { "type": "ObjectId", "ref": "patients", "required": true },
         "caseId": { "type": "ObjectId", "ref": "cases", "sparse": true },
         "organizationId": { "type": "ObjectId", "ref": "organizations", "required": true },
@@ -1398,7 +1398,7 @@
       "documentSizeLimit": "8KB typical, 16KB max",
       "fields": {
         "_id": { "type": "ObjectId", "auto": true },
-        "caseId": { "type": "String", "unique": true, "pattern": "^CASE[0-9]{6}$", "auto": true },
+        "caseId": { "type": "String", "unique": true, "pattern": "^CASE[0-9]{8}$", "auto": true },
         "patientId": { "type": "ObjectId", "ref": "patients", "required": true },
         "referral": {
           "description": "Embedded - Small referral data",

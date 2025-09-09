@@ -99,9 +99,27 @@ const DoctorConsultationModesSchema = new Schema<DoctorConsultationModes>({
 }, { _id: false });
 
 const DoctorAchievementsSchema = new Schema<DoctorAchievements>({
-  awards: [{ type: String, maxlength: 200 }],
+  awards: [{ 
+    type: String, 
+    maxlength: 200,
+    validate: {
+      validator: function(v: string[]) {
+        return !v || v.length <= 10;
+      },
+      message: 'Cannot have more than 10 awards'
+    }
+  }],
   publications: { type: Number, default: 0, min: 0 },
-  researchAreas: [{ type: String, maxlength: 100 }]
+  researchAreas: [{ 
+    type: String, 
+    maxlength: 100,
+    validate: {
+      validator: function(v: string[]) {
+        return !v || v.length <= 5;
+      },
+      message: 'Cannot have more than 5 research areas'
+    }
+  }]
 }, { _id: false });
 
 // Main Doctor Schema

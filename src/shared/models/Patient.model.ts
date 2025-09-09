@@ -308,7 +308,9 @@ PatientSchema.index({ 'contact.mobileNumber': 1 });
 PatientSchema.index({ 'contact.email': 1 }, { sparse: true });
 PatientSchema.index({ 'demographics.dateOfBirth': 1 });
 PatientSchema.index({ primaryUserId: 1 }, { sparse: true });
-PatientSchema.index({ authorizedUsers: 1 });
+PatientSchema.index({ authorizedUsers: 1 }, { sparse: true });
+PatientSchema.index({ 'referralChain.referredBy': 1, 'referralChain.isActive': 1 });
+PatientSchema.index({ 'currentReferralSource.referredBy': 1 }, { sparse: true });
 PatientSchema.index({ status: 1 });
 
 export const PatientModel = model<PatientMongoDoc>('Patient', PatientSchema);

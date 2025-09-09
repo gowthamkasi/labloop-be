@@ -40,8 +40,25 @@ const LabLicensingSchema = new Schema<LabLicensing>({
 }, { _id: false });
 
 const LabCapabilitiesSchema = new Schema<LabCapabilities>({
-  testingCapabilities: [{ type: String, required: true }],
-  equipmentList: [String],
+  testingCapabilities: [{ 
+    type: String, 
+    required: true,
+    validate: {
+      validator: function(v: string[]) {
+        return v && v.length > 0 && v.length <= 50;
+      },
+      message: 'Must have between 1 and 50 testing capabilities'
+    }
+  }],
+  equipmentList: [{ 
+    type: String,
+    validate: {
+      validator: function(v: string[]) {
+        return !v || v.length <= 50;
+      },
+      message: 'Cannot have more than 50 equipment items'
+    }
+  }],
   certifiedTechnicians: { type: Number, required: true, min: 1 },
   qualityControlMeasures: [String],
   turnaroundTime: { type: Number, required: true, min: 1 },
@@ -132,9 +149,36 @@ const LabSchema = new Schema<LabMongoDoc>({
   reviewCount: { type: Number, default: 0 },
   averageRating: { type: Number, default: 0, min: 0, max: 5 },
   priceRange: { type: String, enum: ['$', '$$', '$$$'], default: '$' },
-  features: [{ type: String, maxlength: 100 }],
-  services: [{ type: String, maxlength: 100 }],
-  amenities: [{ type: String, maxlength: 100 }],
+  features: [{ 
+    type: String, 
+    maxlength: 100,
+    validate: {
+      validator: function(v: string[]) {
+        return !v || v.length <= 10;
+      },
+      message: 'Cannot have more than 10 features'
+    }
+  }],
+  services: [{ 
+    type: String, 
+    maxlength: 100,
+    validate: {
+      validator: function(v: string[]) {
+        return !v || v.length <= 20;
+      },
+      message: 'Cannot have more than 20 services'
+    }
+  }],
+  amenities: [{ 
+    type: String, 
+    maxlength: 100,
+    validate: {
+      validator: function(v: string[]) {
+        return !v || v.length <= 15;
+      },
+      message: 'Cannot have more than 15 amenities'
+    }
+  }],
   thumbnail: String,
   acceptsInsurance: { type: Boolean, default: true },
   labDescription: { type: String, maxlength: 500 },
