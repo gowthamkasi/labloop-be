@@ -1,6 +1,7 @@
 import { Schema, model, Document, Types } from 'mongoose';
 import { Gender, BloodGroup } from '../types/enums.js';
 import { Patient, PatientProfile, MedicalHistory, InsuranceInfo, ReferralInfo } from '../interfaces/Patient.interface.js';
+import { generateIdWithErrorHandling } from '../utils/idGenerator.js';
 
 // MongoDB Document interface
 export interface PatientMongoDoc 
@@ -14,7 +15,7 @@ export interface PatientMongoDoc
 }
 
 export interface PatientDocument extends PatientMongoDoc {
-  generatePatientId(): string;
+  generatePatientId(): Promise<string>;
   getFullName(): string;
   getAge(): number;
   addMedicalHistory(type: keyof MedicalHistory, value: string): Promise<this>;
@@ -111,7 +112,7 @@ const PatientSchema = new Schema<PatientDocument>({
   patientId: { 
     type: String, 
     unique: true, 
-    match: /^PAT[0-9]{6}$/,
+    match: /^PAT\d{8}$/,
     required: true
   },
   profile: { type: PatientProfileSchema, required: true },
@@ -179,9 +180,8 @@ PatientSchema.pre('save', function() {
 });
 
 // Methods
-PatientSchema.methods['generatePatientId'] = function(): string {
-  const randomNum = Math.floor(Math.random() * 999999).toString().padStart(6, '0');
-  return `PAT${randomNum}`;
+PatientSchema.methods['generatePatientId'] = async function(): Promise<string> {
+  return await generateIdWithErrorHandling('PAT', 'Patient', 'patientId');
 };
 
 PatientSchema.methods['getFullName'] = function(): string {
@@ -228,15 +228,7 @@ PatientSchema.methods['restore'] = function() {
 // Pre-save middleware for patientId generation
 PatientSchema.pre('save', async function() {
   if (this.isNew && !this['patientId']) {
-    let patientId: string;
-    let exists: any;
-    
-    do {
-      patientId = this['generatePatientId']();
-      exists = await (this.constructor as any).exists({ patientId });
-    } while (exists);
-    
-    this['patientId'] = patientId;
+    this['patientId'] = await generateIdWithErrorHandling('PAT', 'Patient', 'patientId');
   }
 });
 

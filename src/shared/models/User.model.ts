@@ -1,6 +1,7 @@
 import { Schema, model, Document, Types } from 'mongoose';
 import { UserType, UserRole, Gender, BloodGroup } from '../types/enums.js';
 import { User, UserProfile, HealthProfile, Employment, Permissions, Authentication } from '../interfaces/User.interface.js';
+import { generateIdWithErrorHandling } from '../utils/idGenerator.js';
 
 // MongoDB Document interface - handles differences between TS and Mongo types
 export interface UserMongoDoc 
@@ -14,7 +15,7 @@ export interface UserMongoDoc
 }
 
 export interface UserDocument extends UserMongoDoc {
-  generateUserId(): string;
+  generateUserId(): Promise<string>;
   getFullName(): string;
   canManagePatient(patientId: Types.ObjectId): boolean;
   hasPermission(permission: keyof Permissions): boolean;
@@ -103,7 +104,7 @@ const UserSchema = new Schema<UserDocument>({
   userId: { 
     type: String, 
     unique: true, 
-    match: /^USR[0-9]{6}$/,
+    match: /^USR\d{8}$/,
     required: true
   },
   username: { 
@@ -182,9 +183,8 @@ UserSchema.pre('save', function() {
 });
 
 // Methods using bracket notation for TypeScript strict mode
-UserSchema.methods['generateUserId'] = function(): string {
-  const randomNum = Math.floor(Math.random() * 999999).toString().padStart(6, '0');
-  return `USR${randomNum}`;
+UserSchema.methods['generateUserId'] = async function(): Promise<string> {
+  return await generateIdWithErrorHandling('USR', 'User', 'userId');
 };
 
 UserSchema.methods['getFullName'] = function(): string {
@@ -217,15 +217,7 @@ UserSchema.methods['restore'] = function() {
 // Pre-save middleware for userId generation
 UserSchema.pre('save', async function() {
   if (this.isNew && !this['userId']) {
-    let userId: string;
-    let exists: any;
-    
-    do {
-      userId = this['generateUserId']();
-      exists = await (this.constructor as any).exists({ userId });
-    } while (exists);
-    
-    this['userId'] = userId;
+    this['userId'] = await generateIdWithErrorHandling('USR', 'User', 'userId');
   }
 });
 

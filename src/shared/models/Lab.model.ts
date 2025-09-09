@@ -1,5 +1,6 @@
 import { Schema, model, Document, Types } from 'mongoose';
 import { Lab, LabContact, LabLicensing, LabCapabilities, LabOperations, LabSettings } from '../interfaces/Lab.interface.js';
+import { generateIdWithErrorHandling } from '../utils/idGenerator.js';
 
 // MongoDB Document interface
 export interface LabMongoDoc 
@@ -11,7 +12,7 @@ export interface LabMongoDoc
 }
 
 export interface LabDocument extends LabMongoDoc {
-  generateLabId(): string;
+  generateLabId(): Promise<string>;
   getOperatingStatus(): { isOpen: boolean; nextChange?: string };
   updateRating(newRating: number): Promise<this>;
   calculateCompletionRate(): number;
@@ -83,7 +84,7 @@ const LabSchema = new Schema<LabDocument>({
   labId: { 
     type: String, 
     unique: true, 
-    match: /^LAB[0-9]{6}$/,
+    match: /^LAB\d{8}$/,
     required: true
   },
   name: { type: String, required: true, trim: true },
@@ -201,9 +202,8 @@ LabSchema.pre('save', function() {
 });
 
 // Methods
-LabSchema.methods['generateLabId'] = function(): string {
-  const randomNum = Math.floor(Math.random() * 999999).toString().padStart(6, '0');
-  return `LAB${randomNum}`;
+LabSchema.methods['generateLabId'] = async function(): Promise<string> {
+  return await generateIdWithErrorHandling('LAB', 'Lab', 'labId');
 };
 
 LabSchema.methods['getOperatingStatus'] = function(): { isOpen: boolean; nextChange?: string } {
@@ -259,15 +259,7 @@ LabSchema.methods['restore'] = function() {
 // Pre-save middleware for labId generation
 LabSchema.pre('save', async function() {
   if (this.isNew && !this['labId']) {
-    let labId: string;
-    let exists: any;
-    
-    do {
-      labId = this['generateLabId']();
-      exists = await (this.constructor as any).exists({ labId });
-    } while (exists);
-    
-    this['labId'] = labId;
+    this['labId'] = await generateIdWithErrorHandling('LAB', 'Lab', 'labId');
   }
 });
 

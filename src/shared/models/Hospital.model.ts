@@ -1,5 +1,6 @@
 import { Schema, model, Document, Types } from 'mongoose';
 import { Hospital, HospitalContact, HospitalLicensing, HospitalOperations, HospitalSettings } from '../interfaces/Hospital.interface.js';
+import { generateIdWithErrorHandling } from '../utils/idGenerator.js';
 
 // MongoDB Document interface
 export interface HospitalMongoDoc 
@@ -11,7 +12,7 @@ export interface HospitalMongoDoc
 }
 
 export interface HospitalDocument extends HospitalMongoDoc {
-  generateHospitalId(): string;
+  generateHospitalId(): Promise<string>;
   getOperatingStatus(): { isOpen: boolean; nextChange?: string };
   updateRating(newRating: number): Promise<this>;
   softDelete(): Promise<this>;
@@ -71,7 +72,7 @@ const HospitalSchema = new Schema<HospitalDocument>({
   hospitalId: { 
     type: String, 
     unique: true, 
-    match: /^HOS[0-9]{6}$/,
+    match: /^HOS\d{8}$/,
     required: true
   },
   name: { type: String, required: true, trim: true },
@@ -175,9 +176,8 @@ HospitalSchema.pre('save', function() {
 });
 
 // Methods
-HospitalSchema.methods['generateHospitalId'] = function(): string {
-  const randomNum = Math.floor(Math.random() * 999999).toString().padStart(6, '0');
-  return `HOS${randomNum}`;
+HospitalSchema.methods['generateHospitalId'] = async function(): Promise<string> {
+  return await generateIdWithErrorHandling('HOS', 'Hospital', 'hospitalId');
 };
 
 HospitalSchema.methods['getOperatingStatus'] = function(): { isOpen: boolean; nextChange?: string } {
@@ -227,15 +227,7 @@ HospitalSchema.methods['restore'] = function() {
 // Pre-save middleware for hospitalId generation
 HospitalSchema.pre('save', async function() {
   if (this.isNew && !this['hospitalId']) {
-    let hospitalId: string;
-    let exists: any;
-    
-    do {
-      hospitalId = this['generateHospitalId']();
-      exists = await (this.constructor as any).exists({ hospitalId });
-    } while (exists);
-    
-    this['hospitalId'] = hospitalId;
+    this['hospitalId'] = await generateIdWithErrorHandling('HOS', 'Hospital', 'hospitalId');
   }
 });
 
