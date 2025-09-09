@@ -1,6 +1,6 @@
 import { Schema, model, Document } from 'mongoose';
 import { Gender } from '../types/enums.js';
-import { Doctor, DoctorPersonalInfo, DoctorQualifications, DoctorExperience, DoctorContact } from '../interfaces/Doctor.interface.js';
+import { Doctor, DoctorPersonalInfo, DoctorQualifications, DoctorExperience, DoctorContact, DoctorConsultationModes, DoctorAchievements } from '../interfaces/Doctor.interface.js';
 import { generateIdWithErrorHandling } from '../utils/idGenerator.js';
 
 // MongoDB Document interface - handles differences between TS and Mongo types
@@ -92,6 +92,18 @@ const DoctorContactSchema = new Schema<DoctorContact>({
   }
 }, { _id: false });
 
+const DoctorConsultationModesSchema = new Schema<DoctorConsultationModes>({
+  inPerson: { type: Boolean, default: true },
+  teleconsultation: { type: Boolean, default: false },
+  homeVisit: { type: Boolean, default: false }
+}, { _id: false });
+
+const DoctorAchievementsSchema = new Schema<DoctorAchievements>({
+  awards: [{ type: String, maxlength: 200 }],
+  publications: { type: Number, default: 0, min: 0 },
+  researchAreas: [{ type: String, maxlength: 100 }]
+}, { _id: false });
+
 // Main Doctor Schema
 const DoctorSchema = new Schema<DoctorMongoDoc>({
   doctorId: { 
@@ -111,6 +123,24 @@ const DoctorSchema = new Schema<DoctorMongoDoc>({
   qualifications: { type: DoctorQualificationsSchema, required: true },
   experience: DoctorExperienceSchema,
   contact: { type: DoctorContactSchema, required: true },
+  practiceType: {
+    type: String,
+    enum: ['independent', 'hospital', 'clinic', 'multisite'],
+    sparse: true
+  },
+  consultationModes: DoctorConsultationModesSchema,
+  languages: {
+    type: [String],
+    default: ['English', 'Hindi'],
+    validate: {
+      validator: function(v: string[]) {
+        return v.length <= 10;
+      },
+      message: 'Cannot have more than 10 languages'
+    }
+  },
+  achievements: DoctorAchievementsSchema,
+  preferredLabs: [{ type: Schema.Types.ObjectId, ref: 'Lab' }],
   
   // Audit fields
   createdAt: {
@@ -198,6 +228,9 @@ DoctorSchema.index({ 'contact.mobile': 1 });
 DoctorSchema.index({ 'qualifications.specializations': 1 });
 DoctorSchema.index({ 'personalInfo.firstName': 1, 'personalInfo.lastName': 1 });
 DoctorSchema.index({ 'experience.currentSpecialty': 1 });
+DoctorSchema.index({ practiceType: 1 });
+DoctorSchema.index({ languages: 1 });
+DoctorSchema.index({ preferredLabs: 1 });
 DoctorSchema.index({ isActive: 1 });
 
 export const DoctorModel = model<DoctorMongoDoc>('Doctor', DoctorSchema);

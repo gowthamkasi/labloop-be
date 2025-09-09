@@ -28,6 +28,18 @@ export interface DoctorContact {
   alternatePhone?: string;
 }
 
+export interface DoctorConsultationModes {
+  inPerson: boolean;
+  teleconsultation: boolean;
+  homeVisit: boolean;
+}
+
+export interface DoctorAchievements {
+  awards?: string[];
+  publications?: number;
+  researchAreas?: string[];
+}
+
 export interface Doctor {
   _id: string;
   doctorId: string; // DOC000001 format
@@ -36,6 +48,11 @@ export interface Doctor {
   qualifications: DoctorQualifications;
   experience?: DoctorExperience;
   contact: DoctorContact;
+  practiceType?: 'independent' | 'hospital' | 'clinic' | 'multisite';
+  consultationModes?: DoctorConsultationModes;
+  languages?: string[];
+  achievements?: DoctorAchievements;
+  preferredLabs?: string[]; // Array of lab IDs
   
   // Audit fields
   createdAt: Date;

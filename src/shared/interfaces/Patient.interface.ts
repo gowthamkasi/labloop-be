@@ -1,73 +1,95 @@
 import { Gender, BloodGroup } from '../types/enums.js';
-import { Address } from './User.interface.js';
 
-export interface PatientProfile {
+export interface PatientDemographics {
   firstName: string;
   lastName: string;
   dateOfBirth: Date;
   gender: Gender;
-  bloodGroup?: BloodGroup;
-  mobileNumber?: string;
-  email?: string;
-  profilePicture?: string;
-  address?: Address;
-  guardianName?: string;
-  guardianPhone?: string;
-  emergencyContact?: {
-    name: string;
-    phone: string;
-    relationship: string;
-  };
+  bloodGroup?: BloodGroup | 'Unknown';
 }
 
-export interface MedicalHistory {
+export interface PatientContactAddress {
+  street?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+}
+
+export interface PatientContact {
+  mobileNumber: string;
+  alternateNumber?: string;
+  email?: string;
+  address?: PatientContactAddress;
+}
+
+export interface PatientMedicalHistory {
   allergies?: string[];
   medications?: string[];
-  medicalConditions?: string[];
-  surgicalHistory?: string[];
-  familyHistory?: string[];
-  smokingStatus?: 'never' | 'former' | 'current';
-  alcoholConsumption?: 'never' | 'occasional' | 'regular';
+  conditions?: string[];
+  surgeries?: string[];
+  familyHistory?: Record<string, any>;
 }
 
-export interface InsuranceInfo {
-  providerName?: string;
+export interface PatientInsurance {
+  provider?: string;
   policyNumber?: string;
   groupNumber?: string;
   validUntil?: Date;
 }
 
-export interface ReferralInfo {
-  referredBy?: string;
-  referredByType?: 'hospital' | 'lab' | 'doctor' | 'collectionCenter' | 'clinic';
-  referredByName?: string;
-  referralDate?: Date;
+export interface PatientReferralChainItem {
+  referralId?: string;
+  referredBy: string; // ObjectId as string
+  referredByType: 'hospital' | 'lab' | 'doctor' | 'collectionCenter' | 'clinic';
+  referredByName: string;
+  referredTo?: string; // ObjectId as string
+  referredToType?: 'hospital' | 'lab' | 'doctor' | 'collectionCenter' | 'clinic';
+  referralDate: Date;
   referralReason?: string;
   referralNotes?: string;
-  referralTests?: string[];
+  referralTests?: string[]; // ObjectId array as strings
+  isActive?: boolean;
+  completedDate?: Date;
 }
 
-export interface Patient {
-  _id: string;
-  patientId: string; // PAT123456 format
-  profile: PatientProfile;
-  medicalHistory: MedicalHistory;
-  insuranceInfo?: InsuranceInfo;
-  currentReferralSource?: ReferralInfo;
-  registeredBy?: string;
-  registeredByType?: 'hospital' | 'lab' | 'clinic' | 'consumer';
-  
-  // Statistics
-  totalCases: number;
-  totalReports: number;
-  lastVisit?: Date;
-  
-  // Consent flags
+export interface PatientCurrentReferralSource {
+  referredBy?: string; // ObjectId as string
+  referredByType?: string;
+  referredByName?: string;
+  referralDate?: Date;
+}
+
+export interface PatientConsent {
   dataSharing: boolean;
   researchParticipation: boolean;
   marketingCommunication: boolean;
   familyAccessConsent: boolean;
   consentDate?: Date;
+}
+
+export interface PatientStatistics {
+  totalCases: number;
+  totalReports: number;
+  lastVisit?: Date;
+}
+
+export interface Patient {
+  _id: string;
+  patientId: string; // PAT000001 format
+  mrn?: string; // Medical Record Number
+  primaryUserId?: string; // Primary consumer user who manages this patient
+  authorizedUsers?: string[]; // Additional users authorized to access records
+  linkedConsumerAccount?: string; // If patient has their own consumer account
+  demographics: PatientDemographics;
+  contact: PatientContact;
+  medicalHistory?: PatientMedicalHistory;
+  insurance?: PatientInsurance;
+  referralChain?: PatientReferralChainItem[];
+  currentReferralSource?: PatientCurrentReferralSource;
+  consent?: PatientConsent;
+  statistics?: PatientStatistics;
+  status: 'active' | 'inactive' | 'deceased';
   
   // Audit fields
   createdAt: Date;
@@ -75,6 +97,4 @@ export interface Patient {
   deletedAt?: Date;
   createdBy?: string;
   updatedBy?: string;
-  isActive: boolean;
-  version: number;
 }

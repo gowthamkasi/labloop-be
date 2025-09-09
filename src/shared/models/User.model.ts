@@ -1,6 +1,6 @@
 import { Schema, model, Document, Types } from 'mongoose';
 import { UserType, UserRole, Gender, BloodGroup } from '../types/enums.js';
-import { User, UserProfile, HealthProfile, Employment, Permissions, Authentication } from '../interfaces/User.interface.js';
+import { User, UserProfile, HealthProfile, Employment, Permissions, Authentication, UserStatus, UserPreferences, UserNotificationPreferences } from '../interfaces/User.interface.js';
 import { generateIdWithErrorHandling } from '../utils/idGenerator.js';
 
 // MongoDB Document interface - handles differences between TS and Mongo types
@@ -88,14 +88,36 @@ const PermissionsSchema = new Schema<Permissions>({
 }, { _id: false });
 
 const AuthenticationSchema = new Schema<Authentication>({
+  twoFactorEnabled: { type: Boolean, default: false },
+  loginAttempts: { type: Number, default: 0 },
+  lockedUntil: { type: Date, sparse: true },
+  lastLogin: { type: Date },
+  refreshToken: { type: String, sparse: true },
   lastLoginAt: Date,
   lastPasswordChange: Date,
   failedLoginAttempts: { type: Number, default: 0 },
   accountLocked: { type: Boolean, default: false },
-  lockedUntil: Date,
   emailVerified: { type: Boolean, default: false },
-  mobileVerified: { type: Boolean, default: false },
-  twoFactorEnabled: { type: Boolean, default: false }
+  mobileVerified: { type: Boolean, default: false }
+}, { _id: false });
+
+const UserNotificationPreferencesSchema = new Schema<UserNotificationPreferences>({
+  email: { type: Boolean, default: true },
+  sms: { type: Boolean, default: true },
+  push: { type: Boolean, default: true }
+}, { _id: false });
+
+const UserPreferencesSchema = new Schema<UserPreferences>({
+  language: { type: String, default: 'en' },
+  timezone: { type: String, default: 'Asia/Kolkata' },
+  notifications: { type: UserNotificationPreferencesSchema, required: true }
+}, { _id: false });
+
+const UserStatusSchema = new Schema<UserStatus>({
+  isActive: { type: Boolean, default: true },
+  isVerified: { type: Boolean, default: false },
+  emailVerified: { type: Boolean, default: false },
+  phoneVerified: { type: Boolean, default: false }
 }, { _id: false });
 
 // Main User Schema
@@ -126,7 +148,7 @@ const UserSchema = new Schema<UserMongoDoc>({
   role: { type: String, enum: Object.values(UserRole), required: true },
   managedPatients: [{ 
     type: Schema.Types.ObjectId, 
-    ref: 'Patient',
+    ref: 'patients',
     validate: {
       validator: function(v: Types.ObjectId[]) {
         return !v || v.length <= 20;
@@ -139,6 +161,8 @@ const UserSchema = new Schema<UserMongoDoc>({
   employment: EmploymentSchema,
   permissions: { type: PermissionsSchema, required: true },
   authentication: { type: AuthenticationSchema, required: true },
+  status: { type: UserStatusSchema, required: true },
+  preferences: { type: UserPreferencesSchema, required: true },
   
   // Audit fields
   createdAt: {

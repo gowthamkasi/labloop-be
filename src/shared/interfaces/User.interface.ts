@@ -56,14 +56,36 @@ export interface Permissions {
 }
 
 export interface Authentication {
+  twoFactorEnabled: boolean;
+  loginAttempts: number;
+  lockedUntil?: Date;
+  lastLogin?: Date;
+  refreshToken?: string;
   lastLoginAt?: Date;
   lastPasswordChange?: Date;
   failedLoginAttempts: number;
   accountLocked: boolean;
-  lockedUntil?: Date;
   emailVerified: boolean;
   mobileVerified: boolean;
-  twoFactorEnabled: boolean;
+}
+
+export interface UserStatus {
+  isActive: boolean;
+  isVerified: boolean;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+}
+
+export interface UserNotificationPreferences {
+  email: boolean;
+  sms: boolean;
+  push: boolean;
+}
+
+export interface UserPreferences {
+  language: string;
+  timezone: string;
+  notifications: UserNotificationPreferences;
 }
 
 export interface User {
@@ -80,6 +102,8 @@ export interface User {
   employment?: Employment; // Mainly for B2B users
   permissions: Permissions;
   authentication: Authentication;
+  status: UserStatus;
+  preferences: UserPreferences;
   
   // Audit fields
   createdAt: Date;

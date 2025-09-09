@@ -1,35 +1,66 @@
 import { Schema, model, Document, Types } from 'mongoose';
 import { Gender, BloodGroup } from '../types/enums.js';
-import { Patient, PatientProfile, MedicalHistory, InsuranceInfo, ReferralInfo } from '../interfaces/Patient.interface.js';
+import { 
+  Patient, 
+  PatientDemographics, 
+  PatientContact, 
+  PatientContactAddress, 
+  PatientMedicalHistory, 
+  PatientInsurance, 
+  PatientReferralChainItem, 
+  PatientCurrentReferralSource, 
+  PatientConsent, 
+  PatientStatistics 
+} from '../interfaces/Patient.interface.js';
 import { generateIdWithErrorHandling } from '../utils/idGenerator.js';
 
 // MongoDB Document interface
 export interface PatientMongoDoc 
   extends Document,
-    Omit<Patient, '_id' | 'registeredBy' | 'currentReferralSource'> {
-  registeredBy?: Types.ObjectId;
-  currentReferralSource?: Omit<ReferralInfo, 'referredBy' | 'referralTests'> & {
-    referredBy?: Types.ObjectId;
+    Omit<Patient, '_id' | 'referralChain'> {
+  referralChain?: (Omit<PatientReferralChainItem, 'referredBy' | 'referredTo' | 'referralTests'> & {
+    referredBy: Types.ObjectId;
+    referredTo?: Types.ObjectId;
     referralTests?: Types.ObjectId[];
-  };
+  })[];
   
   // Document methods
   generatePatientId(): Promise<string>;
   getFullName(): string;
   getAge(): number;
-  addMedicalHistory(type: keyof MedicalHistory, value: string): Promise<this>;
+  addMedicalHistory(type: 'allergies' | 'medications' | 'conditions' | 'surgeries', value: string): Promise<this>;
   softDelete(): Promise<this>;
   restore(): Promise<this>;
 }
 
 // Embedded Schemas
-const PatientProfileSchema = new Schema<PatientProfile>({
+const PatientDemographicsSchema = new Schema<PatientDemographics>({
   firstName: { type: String, required: true, trim: true },
   lastName: { type: String, required: true, trim: true },
   dateOfBirth: { type: Date, required: true },
   gender: { type: String, enum: Object.values(Gender), required: true },
-  bloodGroup: { type: String, enum: Object.values(BloodGroup) },
+  bloodGroup: { 
+    type: String, 
+    enum: [...Object.values(BloodGroup), 'Unknown'],
+    sparse: true 
+  }
+}, { _id: false });
+
+const PatientContactAddressSchema = new Schema<PatientContactAddress>({
+  street: { type: String, maxlength: 200 },
+  city: { type: String, maxlength: 100 },
+  state: { type: String, maxlength: 100 },
+  zipCode: { type: String, match: /^[0-9]{5,10}$/ },
+  country: { type: String, default: 'India' }
+}, { _id: false });
+
+const PatientContactSchema = new Schema<PatientContact>({
   mobileNumber: { 
+    type: String, 
+    required: true,
+    match: /^\+?[1-9]\d{1,14}$/
+  },
+  alternateNumber: { 
     type: String, 
     match: /^\+?[1-9]\d{1,14}$/,
     sparse: true 
@@ -40,70 +71,65 @@ const PatientProfileSchema = new Schema<PatientProfile>({
     match: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
     sparse: true
   },
-  profilePicture: { type: String, maxlength: 500 },
-  address: {
-    street: { type: String, maxlength: 200 },
-    city: { type: String, maxlength: 100 },
-    state: { type: String, maxlength: 100 },
-    zipCode: { type: String, match: /^[0-9]{5,10}$/ },
-    country: { type: String, default: 'India' },
-    coordinates: {
-      type: {
-        type: String,
-        enum: ['Point'],
-        default: 'Point'
-      },
-      coordinates: {
-        type: [Number],
-        index: '2dsphere'
-      }
-    }
-  },
-  guardianName: { type: String, trim: true },
-  guardianPhone: { type: String },
-  emergencyContact: {
-    name: { type: String, required: true },
-    phone: { type: String, required: true },
-    relationship: { type: String, required: true }
-  }
+  address: PatientContactAddressSchema
 }, { _id: false });
 
-const MedicalHistorySchema = new Schema<MedicalHistory>({
+const PatientMedicalHistorySchema = new Schema<PatientMedicalHistory>({
   allergies: [{ type: String, maxlength: 100 }],
   medications: [{ type: String, maxlength: 100 }],
-  medicalConditions: [{ type: String, maxlength: 100 }],
-  surgicalHistory: [{ type: String, maxlength: 200 }],
-  familyHistory: [{ type: String, maxlength: 200 }],
-  smokingStatus: { 
-    type: String, 
-    enum: ['never', 'former', 'current'],
-    default: 'never'
-  },
-  alcoholConsumption: { 
-    type: String, 
-    enum: ['never', 'occasional', 'regular'],
-    default: 'never'
-  }
+  conditions: [{ type: String, maxlength: 100 }],
+  surgeries: [{ type: String, maxlength: 200 }],
+  familyHistory: { type: Schema.Types.Mixed }
 }, { _id: false });
 
-const InsuranceInfoSchema = new Schema<InsuranceInfo>({
-  providerName: String,
+const PatientInsuranceSchema = new Schema<PatientInsurance>({
+  provider: String,
   policyNumber: String,
   groupNumber: String,
   validUntil: Date
 }, { _id: false });
 
-const ReferralInfoSchema = new Schema({
-  referredBy: { type: Schema.Types.ObjectId },
+const PatientReferralChainItemSchema = new Schema({
+  referralId: String,
+  referredBy: { type: Schema.Types.ObjectId, required: true },
   referredByType: { 
+    type: String, 
+    enum: ['hospital', 'lab', 'doctor', 'collectionCenter', 'clinic'],
+    required: true
+  },
+  referredByName: { type: String, required: true },
+  referredTo: { type: Schema.Types.ObjectId },
+  referredToType: { 
     type: String, 
     enum: ['hospital', 'lab', 'doctor', 'collectionCenter', 'clinic']
   },
-  referredByName: String,
-  referralDate: Date,
+  referralDate: { type: Date, required: true },
   referralReason: { type: String, maxlength: 500 },
   referralNotes: { type: String, maxlength: 1000 },
-  referralTests: [{ type: Schema.Types.ObjectId, ref: 'Test' }]
+  referralTests: [{ type: Schema.Types.ObjectId }],
+  isActive: { type: Boolean, default: true },
+  completedDate: Date
+}, { _id: false });
+
+const PatientCurrentReferralSourceSchema = new Schema<PatientCurrentReferralSource>({
+  referredBy: { type: Schema.Types.ObjectId },
+  referredByType: String,
+  referredByName: String,
+  referralDate: Date
+}, { _id: false });
+
+const PatientConsentSchema = new Schema<PatientConsent>({
+  dataSharing: { type: Boolean, required: true },
+  researchParticipation: { type: Boolean, required: true },
+  marketingCommunication: { type: Boolean, required: true },
+  familyAccessConsent: { type: Boolean, required: true },
+  consentDate: Date
+}, { _id: false });
+
+const PatientStatisticsSchema = new Schema<PatientStatistics>({
+  totalCases: { type: Number, required: true },
+  totalReports: { type: Number, required: true },
+  lastVisit: Date
 }, { _id: false });
 
 // Main Patient Schema
@@ -114,28 +140,24 @@ const PatientSchema = new Schema<PatientMongoDoc>({
     match: /^PAT\d{8}$/,
     required: true
   },
-  profile: { type: PatientProfileSchema, required: true },
-  medicalHistory: { type: MedicalHistorySchema, default: {} },
-  insuranceInfo: InsuranceInfoSchema,
-  currentReferralSource: ReferralInfoSchema,
-  registeredBy: { type: Schema.Types.ObjectId, ref: 'User', sparse: true },
-  registeredByType: { 
+  mrn: { type: String, sparse: true },
+  primaryUserId: { type: Schema.Types.ObjectId, ref: 'User', sparse: true },
+  authorizedUsers: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  linkedConsumerAccount: { type: Schema.Types.ObjectId, ref: 'User', sparse: true },
+  demographics: { type: PatientDemographicsSchema, required: true },
+  contact: { type: PatientContactSchema, required: true },
+  medicalHistory: PatientMedicalHistorySchema,
+  insurance: PatientInsuranceSchema,
+  referralChain: [PatientReferralChainItemSchema],
+  currentReferralSource: PatientCurrentReferralSourceSchema,
+  consent: PatientConsentSchema,
+  statistics: PatientStatisticsSchema,
+  status: { 
     type: String, 
-    enum: ['hospital', 'lab', 'clinic', 'consumer'],
-    sparse: true 
+    enum: ['active', 'inactive', 'deceased'],
+    required: true,
+    default: 'active'
   },
-  
-  // Statistics
-  totalCases: { type: Number, default: 0 },
-  totalReports: { type: Number, default: 0 },
-  lastVisit: Date,
-  
-  // Consent flags
-  dataSharing: { type: Boolean, default: false },
-  researchParticipation: { type: Boolean, default: false },
-  marketingCommunication: { type: Boolean, default: false },
-  familyAccessConsent: { type: Boolean, default: true },
-  consentDate: Date,
   
   // Audit fields
   createdAt: {
@@ -158,15 +180,6 @@ const PatientSchema = new Schema<PatientMongoDoc>({
   updatedBy: {
     type: String,
     sparse: true
-  },
-  isActive: {
-    type: Boolean,
-    default: true,
-    index: true
-  },
-  version: {
-    type: Number,
-    default: 1
   }
 });
 
@@ -174,7 +187,6 @@ const PatientSchema = new Schema<PatientMongoDoc>({
 PatientSchema.pre('save', function() {
   if (this.isModified() && !this.isNew) {
     this['updatedAt'] = new Date();
-    this['version'] = (this['version'] || 0) + 1;
   }
 });
 
@@ -184,12 +196,12 @@ PatientSchema.methods['generatePatientId'] = async function(): Promise<string> {
 };
 
 PatientSchema.methods['getFullName'] = function(): string {
-  return `${this['profile'].firstName} ${this['profile'].lastName}`;
+  return `${this['demographics'].firstName} ${this['demographics'].lastName}`;
 };
 
 PatientSchema.methods['getAge'] = function(): number {
   const today = new Date();
-  const birthDate = new Date(this['profile'].dateOfBirth);
+  const birthDate = new Date(this['demographics'].dateOfBirth);
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
   
@@ -200,7 +212,11 @@ PatientSchema.methods['getAge'] = function(): number {
   return age;
 };
 
-PatientSchema.methods['addMedicalHistory'] = function(type: keyof MedicalHistory, value: string) {
+PatientSchema.methods['addMedicalHistory'] = function(type: 'allergies' | 'medications' | 'conditions' | 'surgeries', value: string) {
+  if (!this['medicalHistory']) {
+    this['medicalHistory'] = {};
+  }
+  
   if (!this['medicalHistory'][type]) {
     this['medicalHistory'][type] = [];
   }
@@ -214,13 +230,13 @@ PatientSchema.methods['addMedicalHistory'] = function(type: keyof MedicalHistory
 
 PatientSchema.methods['softDelete'] = function() {
   this['deletedAt'] = new Date();
-  this['isActive'] = false;
+  this['status'] = 'inactive';
   return this['save']();
 };
 
 PatientSchema.methods['restore'] = function() {
   this['deletedAt'] = null;
-  this['isActive'] = true;
+  this['status'] = 'active';
   return this['save']();
 };
 
@@ -233,11 +249,13 @@ PatientSchema.pre('save', async function() {
 
 // Indexes
 PatientSchema.index({ patientId: 1 }, { unique: true });
-PatientSchema.index({ 'profile.firstName': 'text', 'profile.lastName': 'text' });
-PatientSchema.index({ 'profile.mobileNumber': 1 }, { sparse: true });
-PatientSchema.index({ 'profile.email': 1 }, { sparse: true });
-PatientSchema.index({ 'profile.dateOfBirth': 1 });
-PatientSchema.index({ registeredBy: 1 }, { sparse: true });
-PatientSchema.index({ 'profile.address.coordinates': '2dsphere' });
+PatientSchema.index({ mrn: 1 }, { unique: true, sparse: true });
+PatientSchema.index({ 'demographics.firstName': 'text', 'demographics.lastName': 'text' });
+PatientSchema.index({ 'contact.mobileNumber': 1 });
+PatientSchema.index({ 'contact.email': 1 }, { sparse: true });
+PatientSchema.index({ 'demographics.dateOfBirth': 1 });
+PatientSchema.index({ primaryUserId: 1 }, { sparse: true });
+PatientSchema.index({ authorizedUsers: 1 });
+PatientSchema.index({ status: 1 });
 
 export const PatientModel = model<PatientMongoDoc>('Patient', PatientSchema);
