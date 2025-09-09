@@ -28,7 +28,7 @@ export interface PatientMedicalHistory {
   medications?: string[];
   conditions?: string[];
   surgeries?: string[];
-  familyHistory?: Record<string, any>;
+  familyHistory?: Record<string, string>;
 }
 
 export interface PatientInsurance {
@@ -90,7 +90,7 @@ export interface Patient {
   consent?: PatientConsent;
   statistics?: PatientStatistics;
   status: 'active' | 'inactive' | 'deceased';
-  
+
   // Audit fields
   createdAt: Date;
   updatedAt: Date;
