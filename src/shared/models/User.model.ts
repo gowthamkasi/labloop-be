@@ -12,9 +12,8 @@ export interface UserMongoDoc
     organizationId?: Types.ObjectId;
     reportingTo?: Types.ObjectId;
   };
-}
-
-export interface UserDocument extends UserMongoDoc {
+  
+  // Document methods
   generateUserId(): Promise<string>;
   getFullName(): string;
   canManagePatient(patientId: Types.ObjectId): boolean;
@@ -100,7 +99,7 @@ const AuthenticationSchema = new Schema<Authentication>({
 }, { _id: false });
 
 // Main User Schema
-const UserSchema = new Schema<UserDocument>({
+const UserSchema = new Schema<UserMongoDoc>({
   userId: { 
     type: String, 
     unique: true, 
@@ -230,4 +229,4 @@ UserSchema.index({ 'profile.mobileNumber': 1 }, { sparse: true });
 UserSchema.index({ 'employment.organizationId': 1 }, { sparse: true });
 UserSchema.index({ 'authentication.emailVerified': 1 });
 
-export const UserModel = model<UserDocument>('User', UserSchema);
+export const UserModel = model<UserMongoDoc>('User', UserSchema);

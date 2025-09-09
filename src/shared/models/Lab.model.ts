@@ -9,9 +9,8 @@ export interface LabMongoDoc
   parentHospital?: Types.ObjectId;
   attachedCollectionCenters?: Types.ObjectId[];
   parentNetwork?: Types.ObjectId;
-}
-
-export interface LabDocument extends LabMongoDoc {
+  
+  // Document methods
   generateLabId(): Promise<string>;
   getOperatingStatus(): { isOpen: boolean; nextChange?: string };
   updateRating(newRating: number): Promise<this>;
@@ -80,7 +79,7 @@ const LabSettingsSchema = new Schema<LabSettings>({
 }, { _id: false });
 
 // Main Lab Schema
-const LabSchema = new Schema<LabDocument>({
+const LabSchema = new Schema<LabMongoDoc>({
   labId: { 
     type: String, 
     unique: true, 
@@ -274,4 +273,4 @@ LabSchema.index({ ownership: 1, isActive: 1 });
 LabSchema.index({ parentHospital: 1 }, { sparse: true });
 LabSchema.index({ 'capabilities.testingCapabilities': 1 });
 
-export const LabModel = model<LabDocument>('Lab', LabSchema);
+export const LabModel = model<LabMongoDoc>('Lab', LabSchema);

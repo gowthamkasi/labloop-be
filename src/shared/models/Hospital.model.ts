@@ -9,9 +9,8 @@ export interface HospitalMongoDoc
   attachedLabs?: Types.ObjectId[];
   attachedCollectionCenters?: Types.ObjectId[];
   parentNetwork?: Types.ObjectId;
-}
-
-export interface HospitalDocument extends HospitalMongoDoc {
+  
+  // Document methods
   generateHospitalId(): Promise<string>;
   getOperatingStatus(): { isOpen: boolean; nextChange?: string };
   updateRating(newRating: number): Promise<this>;
@@ -68,7 +67,7 @@ const HospitalSettingsSchema = new Schema<HospitalSettings>({
 }, { _id: false });
 
 // Main Hospital Schema
-const HospitalSchema = new Schema<HospitalDocument>({
+const HospitalSchema = new Schema<HospitalMongoDoc>({
   hospitalId: { 
     type: String, 
     unique: true, 
@@ -240,4 +239,4 @@ HospitalSchema.index({ 'address.coordinates': '2dsphere' });
 HospitalSchema.index({ averageRating: -1, reviewCount: -1 });
 HospitalSchema.index({ ownership: 1, isActive: 1 });
 
-export const HospitalModel = model<HospitalDocument>('Hospital', HospitalSchema);
+export const HospitalModel = model<HospitalMongoDoc>('Hospital', HospitalSchema);

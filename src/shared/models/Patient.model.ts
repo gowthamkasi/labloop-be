@@ -12,9 +12,8 @@ export interface PatientMongoDoc
     referredBy?: Types.ObjectId;
     referralTests?: Types.ObjectId[];
   };
-}
-
-export interface PatientDocument extends PatientMongoDoc {
+  
+  // Document methods
   generatePatientId(): Promise<string>;
   getFullName(): string;
   getAge(): number;
@@ -108,7 +107,7 @@ const ReferralInfoSchema = new Schema({
 }, { _id: false });
 
 // Main Patient Schema
-const PatientSchema = new Schema<PatientDocument>({
+const PatientSchema = new Schema<PatientMongoDoc>({
   patientId: { 
     type: String, 
     unique: true, 
@@ -241,4 +240,4 @@ PatientSchema.index({ 'profile.dateOfBirth': 1 });
 PatientSchema.index({ registeredBy: 1 }, { sparse: true });
 PatientSchema.index({ 'profile.address.coordinates': '2dsphere' });
 
-export const PatientModel = model<PatientDocument>('Patient', PatientSchema);
+export const PatientModel = model<PatientMongoDoc>('Patient', PatientSchema);
