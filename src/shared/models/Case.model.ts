@@ -76,7 +76,7 @@ const CaseSchema = new Schema<CaseMongoDoc>({
   },
   patientId: { type: Schema.Types.ObjectId, ref: 'Patient', required: true },
   referral: { type: CaseReferralSchema, required: true },
-  organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true },
+  organizationId: { type: Schema.Types.ObjectId, ref: 'organizations', required: true },
   priority: {
     type: String,
     enum: ['low', 'medium', 'high', 'urgent'],

@@ -151,7 +151,7 @@ const AppointmentSchema = new Schema<AppointmentMongoDoc>({
   },
   patientId: { type: Schema.Types.ObjectId, ref: 'Patient', required: true },
   caseId: { type: Schema.Types.ObjectId, ref: 'Case' },
-  organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true },
+  organizationId: { type: Schema.Types.ObjectId, ref: 'organizations', required: true },
   type: {
     type: String,
     enum: ['walkIn', 'scheduled', 'urgent', 'homeCollection', 'visitLab', 'teleconsultation'],

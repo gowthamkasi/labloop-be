@@ -47,7 +47,7 @@ const DoctorAvailabilitySchema = new Schema<DoctorAvailability>({
 
 // Main Schema
 const OrganizationDoctorSchema = new Schema<OrganizationDoctorMongoDoc>({
-  organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true },
+  organizationId: { type: Schema.Types.ObjectId, ref: 'organizations', required: true },
   doctorId: { type: String, required: true },
   name: { type: String, required: true, trim: true },
   specialization: { type: String, required: true, trim: true },

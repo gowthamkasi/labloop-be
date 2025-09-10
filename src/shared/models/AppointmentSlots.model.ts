@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, Document, Types, SchemaDefinitionProperty } from 'mongoose';
 
 // Interfaces
 export interface TimeSlot {
@@ -98,7 +98,7 @@ const TimeSlotSchema = new Schema<TimeSlot>({
 
 const FacilityInfoSchema = new Schema<FacilityInfo>({
   facilityName: String,
-  facilityId: { type: Schema.Types.ObjectId, ref: 'Organization' },
+  facilityId: { type: Schema.Types.ObjectId, ref: 'organizations' },
   specialOffersCount: { type: Number, default: 0, min: 0 }
 }, { _id: false });
 
@@ -110,7 +110,7 @@ const SlotScheduleSchema = new Schema<SlotSchedule>({
 
 // Main Schema
 const AppointmentSlotsSchema = new Schema<AppointmentSlotsMongoDoc>({
-  organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true },
+  organizationId: { type: Schema.Types.ObjectId, ref: 'organizations', required: true },
   date: { type: Date, required: true },
   slots: {
     type: [TimeSlotSchema],
@@ -120,7 +120,7 @@ const AppointmentSlotsSchema = new Schema<AppointmentSlotsMongoDoc>({
       },
       message: 'Cannot have more than 100 slots per day'
     }
-  } as any,
+  } as unknown as SchemaDefinitionProperty,
   facilityInfo: { type: FacilityInfoSchema, required: true },
   schedule: { type: SlotScheduleSchema, required: true },
   

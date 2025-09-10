@@ -95,7 +95,7 @@ const HealthProfileSchema = new Schema<HealthProfile>({
 }, { _id: false });
 
 const EmploymentSchema = new Schema({
-  organizationId: { type: Schema.Types.ObjectId, ref: 'Organization' },
+  organizationId: { type: Schema.Types.ObjectId, ref: 'organizations' },
   designation: { type: String, maxlength: 100 },
   department: { type: String, maxlength: 100 },
   joiningDate: Date,
@@ -118,13 +118,7 @@ const AuthenticationSchema = new Schema<Authentication>({
   loginAttempts: { type: Number, default: 0 },
   lockedUntil: { type: Date, sparse: true },
   lastLogin: { type: Date },
-  refreshToken: { type: String, sparse: true },
-  lastLoginAt: Date,
-  lastPasswordChange: Date,
-  failedLoginAttempts: { type: Number, default: 0 },
-  accountLocked: { type: Boolean, default: false },
-  emailVerified: { type: Boolean, default: false },
-  mobileVerified: { type: Boolean, default: false }
+  refreshToken: { type: String, sparse: true }
 }, { _id: false });
 
 const UserNotificationPreferencesSchema = new Schema<UserNotificationPreferences>({
@@ -275,7 +269,6 @@ UserSchema.index({ username: 1 }, { unique: true });
 UserSchema.index({ userType: 1, role: 1, 'status.isActive': 1 });
 UserSchema.index({ 'profile.mobileNumber': 1 }, { sparse: true });
 UserSchema.index({ 'employment.organizationId': 1, 'status.isActive': 1 }, { sparse: true });
-UserSchema.index({ 'authentication.emailVerified': 1 });
 UserSchema.index({ 
   username: 'text', 
   email: 'text', 

@@ -99,7 +99,7 @@ const OrganizationReviewSchema = new Schema<OrganizationReviewMongoDoc>({
     match: /^REV\d{8}$/,
     required: true
   },
-  organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true },
+  organizationId: { type: Schema.Types.ObjectId, ref: 'organizations', required: true },
   patientId: { type: Schema.Types.ObjectId, ref: 'Patient', sparse: true },
   patientName: { type: String, required: true, trim: true },
   rating: {

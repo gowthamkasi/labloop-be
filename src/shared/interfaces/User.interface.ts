@@ -61,12 +61,6 @@ export interface Authentication {
   lockedUntil?: Date;
   lastLogin?: Date;
   refreshToken?: string;
-  lastLoginAt?: Date;
-  lastPasswordChange?: Date;
-  failedLoginAttempts: number;
-  accountLocked: boolean;
-  emailVerified: boolean;
-  mobileVerified: boolean;
 }
 
 export interface UserStatus {

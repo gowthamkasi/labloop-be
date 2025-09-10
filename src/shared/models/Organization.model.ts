@@ -186,12 +186,12 @@ const OrganizationSchema = new Schema<OrganizationMongoDoc>({
   // Network relationships
   parentOrganizationId: { 
     type: Schema.Types.ObjectId, 
-    ref: 'Organization', 
+    ref: 'organizations', 
     sparse: true 
   },
   affiliatedOrganizations: [{ 
     type: Schema.Types.ObjectId, 
-    ref: 'Organization',
+    ref: 'organizations',
     validate: {
       validator: function(v: Types.ObjectId[]) {
         return !v || v.length <= 50;
@@ -323,4 +323,4 @@ OrganizationSchema.index({ specializations: 1 });
 OrganizationSchema.index({ isVerified: 1, isActive: 1 });
 OrganizationSchema.index({ parentOrganizationId: 1 }, { sparse: true });
 
-export const OrganizationModel = model<OrganizationMongoDoc>('Organization', OrganizationSchema);
+export const OrganizationModel = model<OrganizationMongoDoc>('organizations', OrganizationSchema);

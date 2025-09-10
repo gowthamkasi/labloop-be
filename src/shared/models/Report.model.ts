@@ -120,7 +120,7 @@ const ReportSchema = new Schema<ReportMongoDoc>({
   },
   caseId: { type: Schema.Types.ObjectId, ref: 'Case', required: true },
   patientId: { type: Schema.Types.ObjectId, ref: 'Patient', required: true },
-  organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true },
+  organizationId: { type: Schema.Types.ObjectId, ref: 'organizations', required: true },
   reportType: {
     type: String,
     enum: ['individual', 'panel', 'comprehensive'],

@@ -100,7 +100,7 @@ const InvoiceSchema = new Schema<InvoiceMongoDoc>({
   invoiceNumber: { type: String, required: true },
   caseId: { type: Schema.Types.ObjectId, ref: 'Case' },
   patientId: { type: Schema.Types.ObjectId, ref: 'Patient', required: true },
-  organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true },
+  organizationId: { type: Schema.Types.ObjectId, ref: 'organizations', required: true },
   billingType: {
     type: String,
     enum: ['case', 'test', 'package', 'consultation', 'other'],

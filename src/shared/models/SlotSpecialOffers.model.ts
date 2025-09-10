@@ -88,7 +88,7 @@ const OfferUsageLimitSchema = new Schema<OfferUsageLimit>({
 
 // Main Schema
 const SlotSpecialOfferSchema = new Schema<SlotSpecialOfferMongoDoc>({
-  organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true },
+  organizationId: { type: Schema.Types.ObjectId, ref: 'organizations', required: true },
   title: { type: String, required: true, trim: true },
   description: { type: String, required: true, trim: true },
   offerType: {
