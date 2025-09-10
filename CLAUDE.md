@@ -12,14 +12,20 @@ LabLoop Healthcare Lab Management System - A high-performance Fastify backend wi
 
 - `pnpm run dev` - Start development server with tsx watch (hot reload)
 - `pnpm run build` - Compile TypeScript to dist/ using tsconfig.build.json
-- `pnpm run start` - Run production build from dist/index.js
+- `pnpm start` - Run production build from dist/index.js
 - `pnpm run typecheck` - TypeScript type checking without emitting files
 - `pnpm run lint` - ESLint with auto-fix for TypeScript files
+
+### Health & Testing
+
+- Health check available at `/health` endpoint when server is running
+- Database connection info included in health check response
 
 ### Prerequisites
 
 - Node.js >= 20.0.0 (specified in engines)
 - pnpm package manager (lock file present)
+- MongoDB running locally or accessible via MONGODB_URI
 
 ## Architecture Overview
 
@@ -97,6 +103,23 @@ Each app (web/mobile) contains domain modules with consistent organization:
 - **Web App Routes**: `/api/web/*` - Full administrative features for healthcare providers
 - **Mobile App Routes**: `/api/mobile/*` - Simplified patient-focused features
 - **Health Check**: `/health` - System health monitoring
+- **Root Endpoint**: `/` - API overview with available apps and endpoints
+
+### Key Route Differences
+
+**Web App Examples:**
+
+- `/api/web/patients` - Full patient management for staff
+- `/api/web/cases` - Complete case management workflow
+- `/api/web/reports` - All reports management and processing
+- `/api/web/facilities` - Full facility administration
+
+**Mobile App Examples:**
+
+- `/api/mobile/patients/me` - Patient's own profile only
+- `/api/mobile/reports/my` - Patient's own reports only
+- `/api/mobile/facilities/search` - Find nearby facilities only
+- `/api/mobile/appointments` - Simple booking interface
 
 ## TypeScript Configuration
 
@@ -160,10 +183,18 @@ The apps-based architecture allows web and mobile applications to evolve indepen
 
 The system uses a singleton database connection pattern with:
 
-- Connection pooling (2-10 connections)
-- Automatic reconnection handling
-- Graceful shutdown support
+- Connection pooling (2-10 connections) for optimal performance
+- Automatic reconnection handling with event listeners
+- Graceful shutdown support for SIGTERM/SIGINT signals
 - Health check integration at `/health` endpoint
+- Connection timeout and retry configuration for reliability
+
+### Database Connection Features
+
+- **Singleton Pattern**: Single shared connection instance across the application
+- **Event Handling**: Connected, disconnected, error, and reconnected events
+- **Health Monitoring**: Real-time connection status via `database.isHealthy()`
+- **Graceful Shutdown**: Proper cleanup on application termination
 
 ## Environment Variables
 
@@ -175,6 +206,37 @@ PORT=3000
 HOST=0.0.0.0
 ```
 
+## Core Business Entities
+
+The system models the complete healthcare lab ecosystem:
+
+### Primary Entities
+
+- **User**: Base user model with authentication and role management
+- **Patient**: Patient profiles, medical history, and personal information
+- **Doctor**: Doctor credentials, specializations, and facility associations
+- **Case**: Central workflow entity linking patients, tests, and facilities
+
+### Facility Types
+
+- **Hospital**: Healthcare facilities with multiple departments
+- **Lab**: Testing laboratories with specific capabilities
+- **Clinic**: Medical clinics and outpatient facilities
+- **Collection Center**: Sample collection points and locations
+
+### Lab Operations
+
+- **Sample**: Physical specimens with chain of custody tracking
+- **Report**: Test results, documents, and analysis data
+- **Test**: Test definitions, parameters, and methodologies
+- **Appointment**: Patient scheduling and slot management
+
+### Business Operations
+
+- **Invoice**: Billing, payments, and financial tracking
+- **Organization**: Multi-facility healthcare organizations
+- **Analytics**: Health insights, trends, and reporting data
+
 ## File Structure Reference
 
 For detailed information about the apps-based architecture, see:
@@ -183,3 +245,7 @@ For detailed information about the apps-based architecture, see:
 - `src/apps/web/README.md` - Web app features and modules
 - `src/apps/mobile/README.md` - Mobile app features and modules
 - `src/shared/README.md` - Shared components overview
+- `src/shared/models/README.md` - Database schema documentation
+- `src/shared/services/README.md` - Business logic services
+- `src/plugins/README.md` - Fastify plugin system
+- `src/config/README.md` - Configuration management
