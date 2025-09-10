@@ -18,7 +18,7 @@ const fastify = Fastify({
   },
 });
 
-// Register plugins
+// Register core plugins
 await registerPlugins(fastify);
 
 // Health check endpoint
@@ -37,13 +37,7 @@ fastify.get('/health', async () => {
   };
 });
 
-// Web app routes (healthcare providers)
-fastify.register(webRoutes, { prefix: '/api/web' });
-
-// Mobile app routes (patients/consumers)
-fastify.register(mobileRoutes, { prefix: '/api/mobile' });
-
-// Root endpoint
+// Root endpoint  
 fastify.get('/', async () => ({
   message: 'LabLoop Healthcare Lab Management System',
   apps: {
@@ -52,6 +46,15 @@ fastify.get('/', async () => ({
   },
   health: '/health',
 }));
+
+// Import and register routes directly (like Super One)
+const authRoutes = await import('./apps/web/modules/auth/routes/auth.routes.js');
+const adminRoutes = await import('./apps/web/modules/admin/routes/admin.routes.js');
+
+// Register routes directly at root level
+await fastify.register(authRoutes.authRoutes, { prefix: '/api/web/auth' });
+await fastify.register(adminRoutes.adminRoutes, { prefix: '/api/web/admin' });
+
 
 const start = async () => {
   try {

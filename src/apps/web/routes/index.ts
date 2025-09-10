@@ -1,4 +1,6 @@
 import { FastifyInstance, FastifyPluginAsync } from 'fastify';
+import { authRoutes } from '../modules/auth/routes/auth.routes.js';
+import { adminRoutes } from '../modules/admin/routes/admin.routes.js';
 
 const webRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   // Web app root
@@ -11,14 +13,17 @@ const webRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
       'Sample Tracking',
       'Report Generation',
       'Facility Management',
-      'Analytics & Insights'
+      'Analytics & Insights',
+      'User Authentication',
+      'Admin Management'
     ],
   }));
 
-  // Auth routes placeholder
-  fastify.register(async (fastify) => {
-    fastify.get('/', async () => ({ message: 'Web Auth routes - Coming soon' }));
-  }, { prefix: '/auth' });
+  // Auth routes - B2B authentication
+  fastify.register(authRoutes, { prefix: '/auth' });
+
+  // Admin routes - User management
+  fastify.register(adminRoutes);
 
   // Patients routes placeholder
   fastify.register(async (fastify) => {
