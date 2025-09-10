@@ -2,7 +2,6 @@ import { Schema, model, Document, Types } from 'mongoose';
 import { Gender, BloodGroup } from '../types/enums.js';
 import { 
   Patient, 
-  PatientDemographics, 
   PatientContact, 
   PatientContactAddress, 
   PatientMedicalHistory, 
@@ -34,18 +33,6 @@ export interface PatientMongoDoc
 }
 
 // Embedded Schemas
-const PatientDemographicsSchema = new Schema<PatientDemographics>({
-  firstName: { type: String, required: true, trim: true },
-  lastName: { type: String, required: true, trim: true },
-  dateOfBirth: { type: Date, required: true },
-  gender: { type: String, enum: Object.values(Gender), required: true },
-  bloodGroup: { 
-    type: String, 
-    enum: [...Object.values(BloodGroup), 'Unknown'],
-    sparse: true 
-  }
-}, { _id: false });
-
 const PatientContactAddressSchema = new Schema<PatientContactAddress>({
   street: { type: String, maxlength: 200 },
   city: { type: String, maxlength: 100 },
@@ -187,7 +174,18 @@ const PatientSchema = new Schema<PatientMongoDoc>({
     }
   }],
   linkedConsumerAccount: { type: Schema.Types.ObjectId, ref: 'User', sparse: true },
-  demographics: { type: PatientDemographicsSchema, required: true },
+  
+  // Demographics fields
+  firstName: { type: String, required: true, trim: true },
+  lastName: { type: String, required: true, trim: true },
+  dateOfBirth: { type: Date, required: true },
+  gender: { type: String, enum: Object.values(Gender), required: true },
+  bloodGroup: { 
+    type: String, 
+    enum: [...Object.values(BloodGroup), 'Unknown'],
+    sparse: true 
+  },
+  
   contact: { type: PatientContactSchema, required: true },
   medicalHistory: PatientMedicalHistorySchema,
   insurance: PatientInsuranceSchema,
@@ -249,12 +247,12 @@ PatientSchema.methods['generatePatientId'] = async function(): Promise<string> {
 };
 
 PatientSchema.methods['getFullName'] = function(): string {
-  return `${this['demographics'].firstName} ${this['demographics'].lastName}`;
+  return `${this['firstName']} ${this['lastName']}`;
 };
 
 PatientSchema.methods['getAge'] = function(): number {
   const today = new Date();
-  const birthDate = new Date(this['demographics'].dateOfBirth);
+  const birthDate = new Date(this['dateOfBirth']);
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
   
@@ -303,10 +301,10 @@ PatientSchema.pre('save', async function() {
 // Indexes
 PatientSchema.index({ patientId: 1 }, { unique: true });
 PatientSchema.index({ mrn: 1 }, { unique: true, sparse: true });
-PatientSchema.index({ 'demographics.firstName': 'text', 'demographics.lastName': 'text' });
+PatientSchema.index({ firstName: 'text', lastName: 'text' });
 PatientSchema.index({ 'contact.mobileNumber': 1 });
 PatientSchema.index({ 'contact.email': 1 }, { sparse: true });
-PatientSchema.index({ 'demographics.dateOfBirth': 1 });
+PatientSchema.index({ dateOfBirth: 1 });
 PatientSchema.index({ primaryUserId: 1 }, { sparse: true });
 PatientSchema.index({ authorizedUsers: 1 }, { sparse: true });
 PatientSchema.index({ 'referralChain.referredBy': 1, 'referralChain.isActive': 1 });

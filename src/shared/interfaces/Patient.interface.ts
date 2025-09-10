@@ -1,13 +1,5 @@
 import { Gender, BloodGroup } from '../types/enums.js';
 
-export interface PatientDemographics {
-  firstName: string;
-  lastName: string;
-  dateOfBirth: Date;
-  gender: Gender;
-  bloodGroup?: BloodGroup | 'Unknown';
-}
-
 export interface PatientContactAddress {
   street?: string;
   city?: string;
@@ -81,7 +73,14 @@ export interface Patient {
   primaryUserId?: string; // Primary consumer user who manages this patient
   authorizedUsers?: string[]; // Additional users authorized to access records
   linkedConsumerAccount?: string; // If patient has their own consumer account
-  demographics: PatientDemographics;
+  
+  // Demographics fields
+  firstName: string;
+  lastName: string;
+  dateOfBirth: Date;
+  gender: Gender;
+  bloodGroup?: BloodGroup | 'Unknown';
+  
   contact: PatientContact;
   medicalHistory?: PatientMedicalHistory;
   insurance?: PatientInsurance;
