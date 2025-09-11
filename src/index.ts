@@ -1,6 +1,8 @@
 import Fastify from 'fastify';
 import { registerPlugins } from './plugins/index.js';
 import { database, setupGracefulShutdown } from './config/database.js';
+import { registerSwagger } from './swagger/swagger.js';
+import { validateConfig } from './config/validator.js';
 
 export const app = Fastify({
   logger: {
@@ -45,26 +47,15 @@ app.get('/', async () => ({
   health: '/health',
 }));
 
+const config = await validateConfig();
+
 // Import and register routes directly (like Super One)
 const authRoutes = await import('./apps/web/modules/auth/routes/auth.routes.js');
 const adminRoutes = await import('./apps/web/modules/admin/routes/admin.routes.js');
 
-await app.register(import('@fastify/swagger'));
-
-await app.register(import('@fastify/swagger-ui'), {
-  routePrefix: '/docs',
-
-  uiConfig: {
-    docExpansion: 'full',
-    deepLinking: false,
-  },
-  staticCSP: true,
-  transformStaticCSP: (header) => header,
-  transformSpecification: (swaggerObject) => {
-    return swaggerObject;
-  },
-  transformSpecificationClone: true,
-});
+if (config.NODE_ENV === 'development') {
+  await registerSwagger(app);
+}
 
 // Register routes directly at root level
 await app.register(authRoutes.authRoutes, { prefix: '/api/web/auth' });
@@ -74,8 +65,8 @@ const start = async () => {
   try {
     // Connect to MongoDB first
     app.log.info('📦 Connecting to MongoDB...');
+
     await database.connect();
-    app.log.info('✅ MongoDB connected successfully');
 
     // Setup graceful shutdown handlers
     setupGracefulShutdown();
