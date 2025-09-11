@@ -1,15 +1,9 @@
-import { FastifyInstance, FastifyPluginOptions } from 'fastify';
+import { FastifyInstance, FastifyPluginOptions, FastifyRequest, FastifyReply } from 'fastify';
 import { UserController } from '../controllers/UserController.js';
-import {
-  CreateUserSchema,
-  UpdateUserSchema,
-  UserListQuerySchema,
-  UserParamsSchema,
-  ActivateUserSchema
-} from '../validators/admin.validators.js';
+import { JWTPayload } from '../../auth/types/auth.types.js';
 
 // Admin middleware - only admins can access these routes
-async function adminMiddleware(request: any, reply: any) {
+async function adminMiddleware(request: FastifyRequest, reply: FastifyReply) {
   try {
     const authHeader = request.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -25,7 +19,7 @@ async function adminMiddleware(request: any, reply: any) {
     const jwt = await import('jsonwebtoken');
     const JWT_SECRET = process.env['JWT_SECRET'] || 'your-secret-key';
 
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
     request.user = decoded;
 
     // Check if user has admin permissions
@@ -48,7 +42,7 @@ async function adminMiddleware(request: any, reply: any) {
 }
 
 // Manager middleware - admins and managers can access
-async function managerMiddleware(request: any, reply: any) {
+async function managerMiddleware(request: FastifyRequest, reply: FastifyReply) {
   try {
     const authHeader = request.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -64,7 +58,7 @@ async function managerMiddleware(request: any, reply: any) {
     const jwt = await import('jsonwebtoken');
     const JWT_SECRET = process.env['JWT_SECRET'] || 'your-secret-key';
 
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
     request.user = decoded;
 
     // Check if user has admin or manager permissions

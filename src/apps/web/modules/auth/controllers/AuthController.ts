@@ -3,14 +3,14 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { UserModel } from '../../../../../shared/models/User.model.js';
 import { ResponseHelper } from '../../../../../shared/utils/response.helper.js';
-import { 
-  LoginRequest, 
-  RefreshTokenRequest, 
-  ChangePasswordRequest, 
-  ForgotPasswordRequest, 
+import {
+  LoginRequest,
+  RefreshTokenRequest,
+  ChangePasswordRequest,
+  ForgotPasswordRequest,
   ResetPasswordRequest,
   JWTPayload,
-  LoginResponse 
+  LoginResponse,
 } from '../types/auth.types.js';
 
 const JWT_SECRET = process.env['JWT_SECRET'] || 'your-secret-key';
@@ -19,16 +19,15 @@ const JWT_EXPIRES_IN = process.env['JWT_EXPIRES_IN'] || '1h';
 const JWT_REFRESH_EXPIRES_IN = process.env['JWT_REFRESH_EXPIRES_IN'] || '7d';
 
 export class AuthController {
-  
   static async login(request: FastifyRequest<{ Body: LoginRequest }>, reply: FastifyReply) {
     try {
       const { email, password, rememberMe } = request.body;
 
       // Find user by email
-      const user = await UserModel.findOne({ 
-        email, 
+      const user = await UserModel.findOne({
+        email,
         'status.isActive': true,
-        deletedAt: { $exists: false }
+        deletedAt: { $exists: false },
       }).select('+passwordHash');
 
       if (!user) {
@@ -44,31 +43,34 @@ export class AuthController {
           user.authentication.lockedUntil = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
         }
         await user.save();
-        
+
         return ResponseHelper.sendUnauthorized(reply, 'Invalid email or password');
       }
 
       // Check if account is locked
       if (user.authentication.lockedUntil && user.authentication.lockedUntil > new Date()) {
-        return ResponseHelper.sendUnauthorized(reply, 'Account is temporarily locked. Please try again later.');
+        return ResponseHelper.sendUnauthorized(
+          reply,
+          'Account is temporarily locked. Please try again later.'
+        );
       }
 
       // Reset login attempts on successful login
       user.authentication.loginAttempts = 0;
       user.authentication.lockedUntil = undefined;
       user.authentication.lastLogin = new Date();
-      
+
       // Generate tokens
       const tokenPayload: JWTPayload = {
         userId: user.userId,
         email: user.email,
         role: user.role,
-        userType: user.userType
+        userType: user.userType,
       };
 
       const accessToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-      const refreshToken = jwt.sign(tokenPayload, JWT_REFRESH_SECRET, { 
-        expiresIn: rememberMe ? '30d' : JWT_REFRESH_EXPIRES_IN 
+      const refreshToken = jwt.sign(tokenPayload, JWT_REFRESH_SECRET, {
+        expiresIn: rememberMe ? '30d' : JWT_REFRESH_EXPIRES_IN,
       });
 
       // Store refresh token
@@ -87,20 +89,22 @@ export class AuthController {
           profile: {
             firstName: user.profile.firstName,
             lastName: user.profile.lastName,
-            ...(user.profile.mobileNumber && { mobileNumber: user.profile.mobileNumber })
+            ...(user.profile.mobileNumber && { mobileNumber: user.profile.mobileNumber }),
           },
-          employment: user.employment ? {
-            organizationId: user.employment.organizationId?.toString() || '',
-            designation: user.employment.designation || '',
-            department: user.employment.department || ''
-          } : undefined,
-          permissions: user.permissions
+          employment: user.employment
+            ? {
+                organizationId: user.employment.organizationId?.toString() || '',
+                designation: user.employment.designation || '',
+                department: user.employment.department || '',
+              }
+            : undefined,
+          permissions: user.permissions,
         },
         tokens: {
           accessToken,
           refreshToken,
-          expiresIn: 3600 // 1 hour in seconds
-        }
+          expiresIn: 3600, // 1 hour in seconds
+        },
       };
 
       return ResponseHelper.sendSuccess(reply, response, 'Login successful');
@@ -110,19 +114,22 @@ export class AuthController {
     }
   }
 
-  static async refresh(request: FastifyRequest<{ Body: RefreshTokenRequest }>, reply: FastifyReply) {
+  static async refresh(
+    request: FastifyRequest<{ Body: RefreshTokenRequest }>,
+    reply: FastifyReply
+  ) {
     try {
       const { refreshToken } = request.body;
 
       // Verify refresh token
       const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET) as JWTPayload;
-      
+
       // Find user and verify refresh token
       const user = await UserModel.findOne({
         userId: decoded.userId,
         'authentication.refreshToken': refreshToken,
         'status.isActive': true,
-        deletedAt: { $exists: false }
+        deletedAt: { $exists: false },
       });
 
       if (!user) {
@@ -134,14 +141,14 @@ export class AuthController {
         userId: user.userId,
         email: user.email,
         role: user.role,
-        userType: user.userType
+        userType: user.userType,
       };
 
       const accessToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
       const response = {
         accessToken,
-        expiresIn: 3600
+        expiresIn: 3600,
       };
 
       return ResponseHelper.sendSuccess(reply, response, 'Token refreshed successfully');
@@ -174,8 +181,8 @@ export class AuthController {
   static async me(request: FastifyRequest, reply: FastifyReply) {
     try {
       // User is set by auth middleware
-      const userId = (request as any).user?.userId;
-      
+      const userId = request.user?.userId;
+
       if (!userId) {
         return ResponseHelper.sendUnauthorized(reply, 'Authentication required');
       }
@@ -183,7 +190,7 @@ export class AuthController {
       const user = await UserModel.findOne({
         userId,
         'status.isActive': true,
-        deletedAt: { $exists: false }
+        deletedAt: { $exists: false },
       });
 
       if (!user) {
@@ -200,7 +207,7 @@ export class AuthController {
         employment: user.employment,
         permissions: user.permissions,
         status: user.status,
-        preferences: user.preferences
+        preferences: user.preferences,
       };
 
       return ResponseHelper.sendSuccess(reply, response, 'User profile retrieved successfully');
@@ -210,10 +217,13 @@ export class AuthController {
     }
   }
 
-  static async changePassword(request: FastifyRequest<{ Body: ChangePasswordRequest }>, reply: FastifyReply) {
+  static async changePassword(
+    request: FastifyRequest<{ Body: ChangePasswordRequest }>,
+    reply: FastifyReply
+  ) {
     try {
       const { currentPassword, newPassword } = request.body;
-      const userId = (request as any).user?.userId;
+      const userId = request.user?.userId;
 
       if (!userId) {
         return ResponseHelper.sendUnauthorized(reply, 'Authentication required');
@@ -222,7 +232,7 @@ export class AuthController {
       const user = await UserModel.findOne({
         userId,
         'status.isActive': true,
-        deletedAt: { $exists: false }
+        deletedAt: { $exists: false },
       }).select('+passwordHash');
 
       if (!user) {
@@ -250,19 +260,26 @@ export class AuthController {
     }
   }
 
-  static async forgotPassword(request: FastifyRequest<{ Body: ForgotPasswordRequest }>, reply: FastifyReply) {
+  static async forgotPassword(
+    request: FastifyRequest<{ Body: ForgotPasswordRequest }>,
+    reply: FastifyReply
+  ) {
     try {
       const { email } = request.body;
 
       const user = await UserModel.findOne({
         email,
         'status.isActive': true,
-        deletedAt: { $exists: false }
+        deletedAt: { $exists: false },
       });
 
       // Always return success for security (don't reveal if email exists)
       if (!user) {
-        return ResponseHelper.sendSuccess(reply, undefined, 'If the email exists, a password reset link has been sent');
+        return ResponseHelper.sendSuccess(
+          reply,
+          undefined,
+          'If the email exists, a password reset link has been sent'
+        );
       }
 
       // Generate reset token (implement this based on your email service)
@@ -273,14 +290,21 @@ export class AuthController {
 
       console.log(`Password reset token for ${email}: ${resetToken}`); // For development
 
-      return ResponseHelper.sendSuccess(reply, undefined, 'If the email exists, a password reset link has been sent');
+      return ResponseHelper.sendSuccess(
+        reply,
+        undefined,
+        'If the email exists, a password reset link has been sent'
+      );
     } catch (error) {
       console.error('Forgot password error:', error);
       return ResponseHelper.sendInternalError(reply, 'Failed to process password reset request');
     }
   }
 
-  static async resetPassword(request: FastifyRequest<{ Body: ResetPasswordRequest }>, reply: FastifyReply) {
+  static async resetPassword(
+    request: FastifyRequest<{ Body: ResetPasswordRequest }>,
+    reply: FastifyReply
+  ) {
     try {
       const { email, resetToken, newPassword } = request.body;
 
@@ -291,7 +315,7 @@ export class AuthController {
         userId: decoded.userId,
         email,
         'status.isActive': true,
-        deletedAt: { $exists: false }
+        deletedAt: { $exists: false },
       }).select('+passwordHash');
 
       if (!user) {
