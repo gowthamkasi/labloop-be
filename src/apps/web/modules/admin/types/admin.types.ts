@@ -49,10 +49,10 @@ export interface CreateUserResponse {
     mobileNumber?: string | undefined;
   };
   employment?: {
-    organizationId?: string;
-    designation?: string;
-    department?: string;
-  };
+    organizationId?: string | undefined;
+    designation?: string | undefined;
+    department?: string | undefined;
+  } | undefined;
   permissions: object;
   temporaryPassword: string;
   status: {
@@ -124,7 +124,7 @@ export interface UserListResponse {
       organizationId: string;
       designation: string;
       department: string;
-    };
+    } | undefined;
     status: {
       isActive: boolean;
       isVerified: boolean;

@@ -84,7 +84,7 @@ export class AuthController {
       const existingDevice = await DeviceModel.findOne({
         userId: user._id,
         'deviceInfo.userAgent': deviceInfo.userAgent,
-        isActive: true
+        isActive: true,
       });
 
       let device;
@@ -111,7 +111,7 @@ export class AuthController {
           deviceName,
           expiresAt,
           isActive: true,
-          isTrusted: false
+          isTrusted: false,
         });
         await device.save();
       }
@@ -208,7 +208,7 @@ export class AuthController {
       // Find device with the refresh token
       const device = await DeviceModel.findOne({
         refreshToken,
-        isActive: true
+        isActive: true,
       }).populate('userId');
 
       if (!device || device.isExpired()) {
@@ -259,11 +259,11 @@ export class AuthController {
   }
 
   static async logout(
-    request: FastifyRequest<{ Headers: { refreshToken: string } }>,
+    request: FastifyRequest<{ Headers: { 'X-Refresh-Token': string } }>,
     reply: FastifyReply
   ) {
     try {
-      const { refreshToken } = request.headers;
+      const { 'X-Refresh-Token': refreshToken } = request.headers;
 
       if (!refreshToken) {
         return ResponseHelper.sendBadRequest(reply, 'Refresh token is required');
@@ -271,7 +271,7 @@ export class AuthController {
 
       // Find and delete the device record
       const device = await DeviceModel.findOne({ refreshToken, isActive: true });
-      
+
       if (device) {
         await device.revoke(); // This deletes the device record
       }

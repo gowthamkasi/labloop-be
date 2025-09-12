@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyPluginOptions, FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { UserController } from '../controllers/UserController.js';
 import { JWTPayload } from '../../auth/types/auth.types.js';
 
@@ -31,7 +31,7 @@ async function adminMiddleware(request: FastifyRequest, reply: FastifyReply) {
         error: { code: 'FORBIDDEN' },
       });
     }
-  } catch (error) {
+  } catch {
     return reply.code(401).send({
       success: false,
       statusCode: 401,
@@ -70,7 +70,7 @@ async function managerMiddleware(request: FastifyRequest, reply: FastifyReply) {
         error: { code: 'FORBIDDEN' },
       });
     }
-  } catch (error) {
+  } catch {
     return reply.code(401).send({
       success: false,
       statusCode: 401,
@@ -80,7 +80,7 @@ async function managerMiddleware(request: FastifyRequest, reply: FastifyReply) {
   }
 }
 
-export async function adminRoutes(fastify: FastifyInstance, options: FastifyPluginOptions) {
+export async function adminRoutes(fastify: FastifyInstance) {
   // User Management Routes
   fastify.register(
     async function (fastify) {

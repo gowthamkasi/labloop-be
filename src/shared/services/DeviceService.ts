@@ -208,10 +208,10 @@ export class DeviceService {
       const result = stats[0];
       
       // Count device types
-      const typeCount = result.deviceTypes.reduce((acc: any, type: string) => {
+      const typeCount = result.deviceTypes.reduce((acc: Record<string, number>, type: string) => {
         acc[type] = (acc[type] || 0) + 1;
         return acc;
-      }, {});
+      }, {} as Record<string, number>);
 
       return {
         totalDevices: result.totalDevices,

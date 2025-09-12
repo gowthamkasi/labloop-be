@@ -147,12 +147,12 @@ export class UserController {
       } = request.query;
 
       // Build filter
-      const filter: any = {
+      const filter: Record<string, unknown> = {
         deletedAt: { $exists: false },
       };
 
       if (search) {
-        filter.$or = [
+        filter['$or'] = [
           { username: { $regex: search, $options: 'i' } },
           { email: { $regex: search, $options: 'i' } },
           { 'profile.firstName': { $regex: search, $options: 'i' } },
@@ -160,7 +160,7 @@ export class UserController {
         ];
       }
 
-      if (role) filter.role = role;
+      if (role) filter['role'] = role;
       if (organizationId) filter['employment.organizationId'] = organizationId;
       if (isActive !== undefined) filter['status.isActive'] = isActive;
       if (department) filter['employment.department'] = { $regex: department, $options: 'i' };
@@ -273,7 +273,8 @@ export class UserController {
 
       // Update employment joiningDate if provided
       if (updateData.employment?.joiningDate) {
-        updateData.employment.joiningDate = new Date(updateData.employment.joiningDate) as any;
+        const employment = updateData.employment as { joiningDate: string | Date };
+        employment.joiningDate = new Date(employment.joiningDate);
       }
 
       const updatedUser = await UserModel.findOneAndUpdate(
