@@ -58,9 +58,9 @@ export interface Permissions {
 export interface Authentication {
   twoFactorEnabled: boolean;
   loginAttempts: number;
-  lockedUntil?: Date;
-  lastLogin?: Date;
-  refreshToken?: string;
+  lockedUntil?: Date | undefined;
+  lastLogin?: Date | undefined;
+  refreshToken?: string | undefined;
 }
 
 export interface UserStatus {
@@ -98,7 +98,7 @@ export interface User {
   authentication: Authentication;
   status: UserStatus;
   preferences: UserPreferences;
-  
+
   // Audit fields
   createdAt: Date;
   updatedAt: Date;

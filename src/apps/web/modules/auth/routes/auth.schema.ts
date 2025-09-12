@@ -290,7 +290,7 @@ export const LogoutSchema: FastifySchema = {
   tags: ['Web - Auth'],
   summary: 'User Logout',
   description: 'Invalidate refresh token and logout user session',
-  body: {
+  headers: {
     type: 'object',
     properties: {
       refreshToken: {

@@ -10,18 +10,13 @@ import {
   ForgotPasswordRequest,
   ResetPasswordRequest,
   JWTPayload,
-  LoginResponse,
 } from '../types/auth.types.js';
-
-const JWT_SECRET = process.env['JWT_SECRET'] || 'your-secret-key';
-const JWT_REFRESH_SECRET = process.env['JWT_REFRESH_SECRET'] || 'your-refresh-secret';
-const JWT_EXPIRES_IN = process.env['JWT_EXPIRES_IN'] || '1h';
-const JWT_REFRESH_EXPIRES_IN = process.env['JWT_REFRESH_EXPIRES_IN'] || '7d';
+import { config } from '@/config/validator.js';
 
 export class AuthController {
   static async login(request: FastifyRequest<{ Body: LoginRequest }>, reply: FastifyReply) {
     try {
-      const { email, password, rememberMe } = request.body;
+      const { email, password } = request.body;
 
       // Find user by email
       const user = await UserModel.findOne({
@@ -68,28 +63,52 @@ export class AuthController {
         userType: user.userType,
       };
 
-      const accessToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-      const refreshToken = jwt.sign(tokenPayload, JWT_REFRESH_SECRET, {
-        expiresIn: rememberMe ? '30d' : JWT_REFRESH_EXPIRES_IN,
+      const accessToken = jwt.sign(tokenPayload, config.JWT_SECRET as string, {
+        expiresIn: config.JWT_EXPIRES_IN,
+      });
+
+      const refreshToken = jwt.sign(tokenPayload, config.JWT_SECRET as string, {
+        expiresIn: config.JWT_REFRESH_EXPIRES_IN,
       });
 
       // Store refresh token
       user.authentication.refreshToken = refreshToken;
       await user.save();
 
-      // Prepare response
-      const response: LoginResponse = {
+      // Debug user data
+      console.log('User found:', {
+        userId: user.userId,
+        email: user.email,
+        username: user.username,
+        role: user.role,
+        userType: user.userType,
+        hasProfile: !!user.profile,
+        profileData: user.profile,
+        hasPermissions: !!user.permissions,
+      });
+
+      // Prepare response with error handling
+      let fullName = 'Unknown User';
+      try {
+        fullName = user.getFullName();
+      } catch (error) {
+        console.error('Error getting full name:', error);
+        fullName = user.username || user.email;
+      }
+
+      // Create response directly as plain object
+      const responseData = {
         user: {
           id: user.userId,
           email: user.email,
-          name: user.getFullName(),
+          name: fullName,
           username: user.username,
           role: user.role,
           userType: user.userType,
           profile: {
-            firstName: user.profile.firstName,
-            lastName: user.profile.lastName,
-            ...(user.profile.mobileNumber && { mobileNumber: user.profile.mobileNumber }),
+            firstName: user.profile?.firstName || 'Unknown',
+            lastName: user.profile?.lastName || 'User',
+            mobileNumber: user.profile?.mobileNumber,
           },
           employment: user.employment
             ? {
@@ -98,16 +117,37 @@ export class AuthController {
                 department: user.employment.department || '',
               }
             : undefined,
-          permissions: user.permissions,
+          permissions: {
+            canCreateCases: user.permissions?.canCreateCases || false,
+            canEditCases: user.permissions?.canEditCases || false,
+            canDeleteCases: user.permissions?.canDeleteCases || false,
+            canCreateReports: user.permissions?.canCreateReports || false,
+            canApproveReports: user.permissions?.canApproveReports || false,
+            canManageUsers: user.permissions?.canManageUsers || false,
+            canViewAnalytics: user.permissions?.canViewAnalytics || false,
+            canManageInventory: user.permissions?.canManageInventory || false,
+          },
         },
         tokens: {
           accessToken,
           refreshToken,
-          expiresIn: 3600, // 1 hour in seconds
+          expiresIn: 3600,
         },
       };
 
-      return ResponseHelper.sendSuccess(reply, response, 'Login successful');
+      console.log('Prepared response data:', JSON.stringify(responseData, null, 2));
+
+      // Try direct response without ResponseHelper
+      const directResponse = {
+        success: true,
+        statusCode: 200,
+        message: 'Login successful',
+        data: responseData,
+      };
+
+      console.log('Direct response:', JSON.stringify(directResponse, null, 2));
+
+      return reply.code(200).send(directResponse);
     } catch (error) {
       console.error('Login error:', error);
       return ResponseHelper.sendInternalError(reply, 'Login failed');
@@ -122,7 +162,7 @@ export class AuthController {
       const { refreshToken } = request.body;
 
       // Verify refresh token
-      const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET) as JWTPayload;
+      const decoded = jwt.verify(refreshToken, config.JWT_SECRET as string) as JWTPayload;
 
       // Find user and verify refresh token
       const user = await UserModel.findOne({
@@ -144,7 +184,9 @@ export class AuthController {
         userType: user.userType,
       };
 
-      const accessToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+      const accessToken = jwt.sign(tokenPayload, config.JWT_SECRET as string, {
+        expiresIn: config.JWT_EXPIRES_IN,
+      });
 
       const response = {
         accessToken,
@@ -161,9 +203,12 @@ export class AuthController {
     }
   }
 
-  static async logout(request: FastifyRequest<{ Body: RefreshTokenRequest }>, reply: FastifyReply) {
+  static async logout(
+    request: FastifyRequest<{ Headers: { refreshToken: string } }>,
+    reply: FastifyReply
+  ) {
     try {
-      const { refreshToken } = request.body;
+      const { refreshToken } = request.headers;
 
       // Find user and clear refresh token
       await UserModel.findOneAndUpdate(
@@ -283,7 +328,9 @@ export class AuthController {
       }
 
       // Generate reset token (implement this based on your email service)
-      const resetToken = jwt.sign({ userId: user.userId }, JWT_SECRET, { expiresIn: '1h' });
+      const resetToken = jwt.sign({ userId: user.userId }, config.JWT_SECRET as string, {
+        expiresIn: config.JWT_EXPIRES_IN,
+      });
 
       // TODO: Send email with reset token
       // await emailService.sendPasswordResetEmail(user.email, resetToken);
@@ -309,7 +356,7 @@ export class AuthController {
       const { email, resetToken, newPassword } = request.body;
 
       // Verify reset token
-      const decoded = jwt.verify(resetToken, JWT_SECRET) as JWTPayload;
+      const decoded = jwt.verify(resetToken, config.JWT_SECRET as string) as JWTPayload;
 
       const user = await UserModel.findOne({
         userId: decoded.userId,
