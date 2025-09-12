@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
 import { UserModel } from '../../../../../shared/models/User.model.js';
 import { DeviceModel } from '../../../../../shared/models/Device.model.js';
 import { ResponseHelper } from '../../../../../shared/utils/response.helper.js';
@@ -97,13 +98,14 @@ export class AuthController {
         device = await existingDevice.save();
       } else {
         // Check device limit and enforce if needed
-        const deviceLimitExceeded = await DeviceService.checkDeviceLimit(user.userId, 5);
+        const deviceLimitExceeded = await DeviceService.checkDeviceLimit((user._id as string), 5);
         if (deviceLimitExceeded) {
-          await DeviceService.enforceDeviceLimit(user.userId, 5);
+          await DeviceService.enforceDeviceLimit((user._id as string), 5);
         }
 
         // Create new device record
         device = new DeviceModel({
+          deviceId: uuidv4(),
           userId: user._id,
           deviceInfo,
           location: locationInfo,
@@ -113,6 +115,15 @@ export class AuthController {
           isActive: true,
           isTrusted: false,
         });
+        
+        // Debug: Log the device before saving
+        console.log('Device before save:', {
+          userId: device.userId,
+          deviceId: device.deviceId,
+          deviceInfo: device.deviceInfo,
+          refreshToken: device.refreshToken ? '[REDACTED]' : undefined,
+        });
+        
         await device.save();
       }
 

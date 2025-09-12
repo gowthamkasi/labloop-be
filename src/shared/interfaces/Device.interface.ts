@@ -15,7 +15,7 @@ export interface DeviceLocation {
 
 export interface Device {
   _id: string;
-  deviceId: string; // DEV123456 format
+  deviceId: string; // UUID format
   userId: string;
   deviceInfo: DeviceInfo;
   location?: DeviceLocation;

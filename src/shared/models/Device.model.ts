@@ -1,13 +1,11 @@
 import { Schema, model, Document, Types } from 'mongoose';
 import { Device, DeviceInfo, DeviceLocation } from '../interfaces/Device.interface.js';
-import { generateIdWithErrorHandling } from '../utils/idGenerator.js';
 
 // MongoDB Document interface
 export interface DeviceMongoDoc extends Document, Omit<Device, '_id' | 'userId'> {
   userId: Types.ObjectId;
   
   // Document methods
-  generateDeviceId(): Promise<string>;
   updateLastActive(): Promise<this>;
   isExpired(): boolean;
   markAsTrusted(): Promise<this>;
@@ -42,7 +40,7 @@ const DeviceLocationSchema = new Schema<DeviceLocation>({
 const DeviceSchema = new Schema<DeviceMongoDoc>({
   deviceId: {
     type: String,
-    match: /^DEV\d{8}$/,
+    match: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     required: true,
     unique: true
   },
@@ -124,9 +122,6 @@ DeviceSchema.pre('save', function() {
 DeviceSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 // Methods
-DeviceSchema.methods['generateDeviceId'] = async function(): Promise<string> {
-  return await generateIdWithErrorHandling('DEV', 'Device', 'deviceId');
-};
 
 DeviceSchema.methods['updateLastActive'] = function() {
   this['lastActive'] = new Date();
@@ -146,12 +141,6 @@ DeviceSchema.methods['revoke'] = async function(): Promise<void> {
   await this['deleteOne']();
 };
 
-// Pre-save middleware for deviceId generation
-DeviceSchema.pre('save', async function() {
-  if (this.isNew && !this['deviceId']) {
-    this['deviceId'] = await generateIdWithErrorHandling('DEV', 'Device', 'deviceId');
-  }
-});
 
 // Indexes
 DeviceSchema.index({ userId: 1, isActive: 1 });
