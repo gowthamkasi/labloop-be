@@ -117,8 +117,7 @@ const AuthenticationSchema = new Schema<Authentication>({
   twoFactorEnabled: { type: Boolean, default: false },
   loginAttempts: { type: Number, default: 0 },
   lockedUntil: { type: Date, sparse: true },
-  lastLogin: { type: Date },
-  refreshToken: { type: String, sparse: true }
+  lastLogin: { type: Date }
 }, { _id: false });
 
 const UserNotificationPreferencesSchema = new Schema<UserNotificationPreferences>({

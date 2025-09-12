@@ -10,12 +10,14 @@ import {
   UserListQuery,
   UserListResponse,
   ResetPasswordResponse,
-  ActivateUserRequest
+  ActivateUserRequest,
 } from '../types/admin.types.js';
 
 export class UserController {
-
-  static async createUser(request: FastifyRequest<{ Body: CreateUserRequest }>, reply: FastifyReply) {
+  static async createUser(
+    request: FastifyRequest<{ Body: CreateUserRequest }>,
+    reply: FastifyReply
+  ) {
     try {
       const {
         username,
@@ -24,13 +26,13 @@ export class UserController {
         profile,
         employment,
         permissions,
-        sendWelcomeEmail = true
+        sendWelcomeEmail = true,
       } = request.body;
 
       // Check if user already exists
       const existingUser = await UserModel.findOne({
         $or: [{ email }, { username }],
-        deletedAt: { $exists: false }
+        deletedAt: { $exists: false },
       });
 
       if (existingUser) {
@@ -41,7 +43,8 @@ export class UserController {
       }
 
       // Generate temporary password
-      const temporaryPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
+      const temporaryPassword =
+        Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
       const saltRounds = 12;
       const hashedPassword = await bcrypt.hash(temporaryPassword, saltRounds);
 
@@ -57,16 +60,18 @@ export class UserController {
         userType: UserType.B2B,
         role,
         profile,
-        employment: employment ? {
-          ...employment,
-          joiningDate: employment.joiningDate ? new Date(employment.joiningDate) : new Date()
-        } : undefined,
+        employment: employment
+          ? {
+              ...employment,
+              joiningDate: employment.joiningDate ? new Date(employment.joiningDate) : new Date(),
+            }
+          : undefined,
         permissions: finalPermissions,
         status: {
           isActive: true,
           isVerified: false,
           emailVerified: false,
-          phoneVerified: false
+          phoneVerified: false,
         },
         preferences: {
           language: 'en',
@@ -74,20 +79,22 @@ export class UserController {
           notifications: {
             email: true,
             sms: true,
-            push: true
-          }
+            push: true,
+          },
         },
         authentication: {
           twoFactorEnabled: false,
-          loginAttempts: 0
-        }
+          loginAttempts: 0,
+        },
       });
 
       await newUser.save();
 
       // TODO: Send welcome email if requested
       if (sendWelcomeEmail) {
-        console.log(`Welcome email would be sent to ${email} with temporary password: ${temporaryPassword}`);
+        console.log(
+          `Welcome email would be sent to ${email} with temporary password: ${temporaryPassword}`
+        );
         // await emailService.sendWelcomeEmail(email, temporaryPassword);
       }
 
@@ -99,26 +106,35 @@ export class UserController {
         profile: {
           firstName: newUser.profile.firstName,
           lastName: newUser.profile.lastName,
-          mobileNumber: newUser.profile.mobileNumber
+          mobileNumber: newUser.profile.mobileNumber,
         },
-        employment: newUser.employment ? {
-          organizationId: newUser.employment.organizationId?.toString() || '',
-          designation: newUser.employment.designation || '',
-          department: newUser.employment.department || ''
-        } : undefined,
+        employment: newUser.employment
+          ? {
+              organizationId: newUser.employment.organizationId?.toString(),
+              designation: newUser.employment.designation,
+              department: newUser.employment.department,
+            }
+          : undefined,
         permissions: newUser.permissions,
         temporaryPassword, // Only returned to admin
-        status: newUser.status
+        status: newUser.status,
       };
 
-      return ResponseHelper.sendCreated(reply, response, 'User created successfully. Welcome email sent.');
+      return ResponseHelper.sendCreated(
+        reply,
+        response,
+        'User created successfully. Welcome email sent.'
+      );
     } catch (error) {
       console.error('Create user error:', error);
       return ResponseHelper.sendInternalError(reply, 'Failed to create user');
     }
   }
 
-  static async getUsers(request: FastifyRequest<{ Querystring: UserListQuery }>, reply: FastifyReply) {
+  static async getUsers(
+    request: FastifyRequest<{ Querystring: UserListQuery }>,
+    reply: FastifyReply
+  ) {
     try {
       const {
         page = 1,
@@ -127,12 +143,12 @@ export class UserController {
         role,
         organizationId,
         isActive,
-        department
+        department,
       } = request.query;
 
       // Build filter
       const filter: any = {
-        deletedAt: { $exists: false }
+        deletedAt: { $exists: false },
       };
 
       if (search) {
@@ -140,7 +156,7 @@ export class UserController {
           { username: { $regex: search, $options: 'i' } },
           { email: { $regex: search, $options: 'i' } },
           { 'profile.firstName': { $regex: search, $options: 'i' } },
-          { 'profile.lastName': { $regex: search, $options: 'i' } }
+          { 'profile.lastName': { $regex: search, $options: 'i' } },
         ];
       }
 
@@ -153,8 +169,7 @@ export class UserController {
       const total = await UserModel.countDocuments(filter);
 
       // Get users with pagination
-      const users = await UserModel
-        .find(filter)
+      const users = await UserModel.find(filter)
         .select('-passwordHash -authentication.refreshToken')
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
@@ -164,33 +179,35 @@ export class UserController {
       const totalPages = Math.ceil(total / limit);
 
       const response: UserListResponse = {
-        users: users.map(user => ({
+        users: users.map((user) => ({
           userId: user.userId,
           username: user.username,
           email: user.email,
           role: user.role,
           profile: {
             firstName: user.profile.firstName,
-            lastName: user.profile.lastName
+            lastName: user.profile.lastName,
           },
-          employment: user.employment ? {
-            organizationId: user.employment.organizationId?.toString() || '',
-            designation: user.employment.designation || '',
-            department: user.employment.department || ''
-          } : undefined,
+          employment: user.employment
+            ? {
+                organizationId: user.employment.organizationId?.toString() || '',
+                designation: user.employment.designation || '',
+                department: user.employment.department || '',
+              }
+            : undefined,
           status: {
             isActive: user.status.isActive,
-            isVerified: user.status.isVerified
+            isVerified: user.status.isVerified,
           },
-          createdAt: user.createdAt.toISOString()
+          createdAt: user.createdAt.toISOString(),
         })),
         pagination: {
           total,
           page,
           totalPages,
           hasNext: page < totalPages,
-          hasPrev: page > 1
-        }
+          hasPrev: page > 1,
+        },
       };
 
       return ResponseHelper.sendSuccess(reply, response, 'Users retrieved successfully');
@@ -200,15 +217,17 @@ export class UserController {
     }
   }
 
-  static async getUser(request: FastifyRequest<{ Params: { userId: string } }>, reply: FastifyReply) {
+  static async getUser(
+    request: FastifyRequest<{ Params: { userId: string } }>,
+    reply: FastifyReply
+  ) {
     try {
       const { userId } = request.params;
 
-      const user = await UserModel
-        .findOne({
-          userId,
-          deletedAt: { $exists: false }
-        })
+      const user = await UserModel.findOne({
+        userId,
+        deletedAt: { $exists: false },
+      })
         .select('-passwordHash -authentication.refreshToken')
         .lean();
 
@@ -223,7 +242,10 @@ export class UserController {
     }
   }
 
-  static async updateUser(request: FastifyRequest<{ Params: { userId: string }, Body: UpdateUserRequest }>, reply: FastifyReply) {
+  static async updateUser(
+    request: FastifyRequest<{ Params: { userId: string }; Body: UpdateUserRequest }>,
+    reply: FastifyReply
+  ) {
     try {
       const { userId } = request.params;
       const updateData = request.body;
@@ -233,16 +255,18 @@ export class UserController {
         const existingUser = await UserModel.findOne({
           $or: [
             ...(updateData.email ? [{ email: updateData.email }] : []),
-            ...(updateData.username ? [{ username: updateData.username }] : [])
+            ...(updateData.username ? [{ username: updateData.username }] : []),
           ],
           userId: { $ne: userId },
-          deletedAt: { $exists: false }
+          deletedAt: { $exists: false },
         });
 
         if (existingUser) {
           return ResponseHelper.sendConflict(
             reply,
-            existingUser.email === updateData.email ? 'Email already exists' : 'Username already exists'
+            existingUser.email === updateData.email
+              ? 'Email already exists'
+              : 'Username already exists'
           );
         }
       }
@@ -252,18 +276,17 @@ export class UserController {
         updateData.employment.joiningDate = new Date(updateData.employment.joiningDate) as any;
       }
 
-      const updatedUser = await UserModel
-        .findOneAndUpdate(
-          { userId, deletedAt: { $exists: false } },
-          { 
-            ...updateData,
-            updatedAt: new Date()
-          },
-          { 
-            new: true, 
-            runValidators: true 
-          }
-        )
+      const updatedUser = await UserModel.findOneAndUpdate(
+        { userId, deletedAt: { $exists: false } },
+        {
+          ...updateData,
+          updatedAt: new Date(),
+        },
+        {
+          new: true,
+          runValidators: true,
+        }
+      )
         .select('-passwordHash -authentication.refreshToken')
         .lean();
 
@@ -278,20 +301,22 @@ export class UserController {
     }
   }
 
-  static async activateUser(request: FastifyRequest<{ Params: { userId: string }, Body: ActivateUserRequest }>, reply: FastifyReply) {
+  static async activateUser(
+    request: FastifyRequest<{ Params: { userId: string }; Body: ActivateUserRequest }>,
+    reply: FastifyReply
+  ) {
     try {
       const { userId } = request.params;
       const { isActive } = request.body;
 
-      const updatedUser = await UserModel
-        .findOneAndUpdate(
-          { userId, deletedAt: { $exists: false } },
-          { 
-            'status.isActive': isActive,
-            updatedAt: new Date()
-          },
-          { new: true }
-        )
+      const updatedUser = await UserModel.findOneAndUpdate(
+        { userId, deletedAt: { $exists: false } },
+        {
+          'status.isActive': isActive,
+          updatedAt: new Date(),
+        },
+        { new: true }
+      )
         .select('-passwordHash -authentication.refreshToken')
         .lean();
 
@@ -307,13 +332,16 @@ export class UserController {
     }
   }
 
-  static async resetUserPassword(request: FastifyRequest<{ Params: { userId: string } }>, reply: FastifyReply) {
+  static async resetUserPassword(
+    request: FastifyRequest<{ Params: { userId: string } }>,
+    reply: FastifyReply
+  ) {
     try {
       const { userId } = request.params;
 
       const user = await UserModel.findOne({
         userId,
-        deletedAt: { $exists: false }
+        deletedAt: { $exists: false },
       });
 
       if (!user) {
@@ -321,34 +349,47 @@ export class UserController {
       }
 
       // Generate new temporary password
-      const temporaryPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
+      const temporaryPassword =
+        Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
       const saltRounds = 12;
       const hashedPassword = await bcrypt.hash(temporaryPassword, saltRounds);
 
-      // Update password and clear refresh token
+      // Update password and clear login attempts
       user.passwordHash = hashedPassword;
-      user.authentication.refreshToken = undefined;
       user.authentication.loginAttempts = 0;
       user.authentication.lockedUntil = undefined;
       await user.save();
 
+      // Revoke all devices for security
+      const { DeviceModel } = await import('../../../../../shared/models/Device.model.js');
+      await DeviceModel.deleteMany({ userId: user._id });
+
       // TODO: Send email with new password
-      console.log(`Password reset email would be sent to ${user.email} with new password: ${temporaryPassword}`);
+      console.log(
+        `Password reset email would be sent to ${user.email} with new password: ${temporaryPassword}`
+      );
       // await emailService.sendPasswordResetEmail(user.email, temporaryPassword);
 
       const response: ResetPasswordResponse = {
         temporaryPassword,
-        emailSent: true
+        emailSent: true,
       };
 
-      return ResponseHelper.sendSuccess(reply, response, 'Password reset successfully. New temporary password sent to user.');
+      return ResponseHelper.sendSuccess(
+        reply,
+        response,
+        'Password reset successfully. New temporary password sent to user.'
+      );
     } catch (error) {
       console.error('Reset user password error:', error);
       return ResponseHelper.sendInternalError(reply, 'Failed to reset user password');
     }
   }
 
-  static async deleteUser(request: FastifyRequest<{ Params: { userId: string } }>, reply: FastifyReply) {
+  static async deleteUser(
+    request: FastifyRequest<{ Params: { userId: string } }>,
+    reply: FastifyReply
+  ) {
     try {
       const { userId } = request.params;
 
@@ -357,7 +398,7 @@ export class UserController {
         {
           deletedAt: new Date(),
           'status.isActive': false,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         },
         { new: true }
       );
@@ -383,7 +424,7 @@ export class UserController {
       canApproveReports: false,
       canManageUsers: false,
       canViewAnalytics: false,
-      canManageInventory: false
+      canManageInventory: false,
     };
 
     switch (role) {
@@ -397,7 +438,7 @@ export class UserController {
           canApproveReports: true,
           canManageUsers: true,
           canViewAnalytics: true,
-          canManageInventory: true
+          canManageInventory: true,
         };
       case 'lab_manager':
         return {
@@ -407,21 +448,21 @@ export class UserController {
           canCreateReports: true,
           canApproveReports: true,
           canViewAnalytics: true,
-          canManageInventory: true
+          canManageInventory: true,
         };
       case 'technician':
         return {
           ...permissions,
           canCreateCases: true,
           canCreateReports: true,
-          canViewAnalytics: true
+          canViewAnalytics: true,
         };
       case 'doctor':
         return {
           ...permissions,
           canCreateCases: true,
           canEditCases: true,
-          canViewAnalytics: true
+          canViewAnalytics: true,
         };
       default:
         return permissions;

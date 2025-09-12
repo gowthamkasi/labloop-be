@@ -60,7 +60,6 @@ export interface Authentication {
   loginAttempts: number;
   lockedUntil?: Date | undefined;
   lastLogin?: Date | undefined;
-  refreshToken?: string | undefined;
 }
 
 export interface UserStatus {

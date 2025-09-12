@@ -1,4 +1,4 @@
-import { UserRole, UserType, Gender } from '../../../../../shared/types/enums.js';
+import { UserRole, Gender } from '../../../../../shared/types/enums.js';
 
 export interface CreateUserRequest {
   username: string;
@@ -46,12 +46,12 @@ export interface CreateUserResponse {
   profile: {
     firstName: string;
     lastName: string;
-    mobileNumber?: string;
+    mobileNumber?: string | undefined;
   };
   employment?: {
-    organizationId: string;
-    designation: string;
-    department: string;
+    organizationId?: string;
+    designation?: string;
+    department?: string;
   };
   permissions: object;
   temporaryPassword: string;

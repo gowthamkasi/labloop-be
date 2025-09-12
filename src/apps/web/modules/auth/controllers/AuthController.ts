@@ -2,7 +2,10 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { UserModel } from '../../../../../shared/models/User.model.js';
+import { DeviceModel } from '../../../../../shared/models/Device.model.js';
 import { ResponseHelper } from '../../../../../shared/utils/response.helper.js';
+import { DeviceHelper } from '../../../../../shared/utils/device.helper.js';
+import { DeviceService } from '../../../../../shared/services/DeviceService.js';
 import {
   LoginRequest,
   RefreshTokenRequest,
@@ -33,7 +36,7 @@ export class AuthController {
       const isValidPassword = await bcrypt.compare(password, user.passwordHash);
       if (!isValidPassword) {
         // Increment login attempts
-        await user.authentication.loginAttempts++;
+        user.authentication.loginAttempts++;
         if (user.authentication.loginAttempts >= 5) {
           user.authentication.lockedUntil = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
         }
@@ -71,9 +74,47 @@ export class AuthController {
         expiresIn: config.JWT_REFRESH_EXPIRES_IN,
       });
 
-      // Store refresh token
-      user.authentication.refreshToken = refreshToken;
-      await user.save();
+      // Extract device information from request
+      const deviceInfo = DeviceHelper.extractDeviceInfo(request);
+      const locationInfo = DeviceHelper.extractLocationInfo(request);
+      const deviceName = DeviceHelper.generateDeviceName(deviceInfo);
+      const expiresAt = DeviceHelper.calculateExpiryDate(config.JWT_REFRESH_EXPIRES_IN as string);
+
+      // Create or update device record
+      const existingDevice = await DeviceModel.findOne({
+        userId: user._id,
+        'deviceInfo.userAgent': deviceInfo.userAgent,
+        isActive: true
+      });
+
+      let device;
+      if (existingDevice) {
+        // Update existing device
+        existingDevice.refreshToken = refreshToken;
+        existingDevice.lastActive = new Date();
+        existingDevice.expiresAt = expiresAt;
+        existingDevice.location = locationInfo;
+        device = await existingDevice.save();
+      } else {
+        // Check device limit and enforce if needed
+        const deviceLimitExceeded = await DeviceService.checkDeviceLimit(user.userId, 5);
+        if (deviceLimitExceeded) {
+          await DeviceService.enforceDeviceLimit(user.userId, 5);
+        }
+
+        // Create new device record
+        device = new DeviceModel({
+          userId: user._id,
+          deviceInfo,
+          location: locationInfo,
+          refreshToken,
+          deviceName,
+          expiresAt,
+          isActive: true,
+          isTrusted: false
+        });
+        await device.save();
+      }
 
       // Debug user data
       console.log('User found:', {
@@ -164,17 +205,31 @@ export class AuthController {
       // Verify refresh token
       const decoded = jwt.verify(refreshToken, config.JWT_SECRET as string) as JWTPayload;
 
-      // Find user and verify refresh token
+      // Find device with the refresh token
+      const device = await DeviceModel.findOne({
+        refreshToken,
+        isActive: true
+      }).populate('userId');
+
+      if (!device || device.isExpired()) {
+        return ResponseHelper.sendUnauthorized(reply, 'Invalid or expired refresh token');
+      }
+
+      // Get user data
       const user = await UserModel.findOne({
         userId: decoded.userId,
-        'authentication.refreshToken': refreshToken,
         'status.isActive': true,
         deletedAt: { $exists: false },
       });
 
       if (!user) {
-        return ResponseHelper.sendUnauthorized(reply, 'Invalid refresh token');
+        // Clean up orphaned device
+        await device.revoke();
+        return ResponseHelper.sendUnauthorized(reply, 'User not found');
       }
+
+      // Update device last activity
+      await device.updateLastActive();
 
       // Generate new access token
       const tokenPayload: JWTPayload = {
@@ -210,11 +265,16 @@ export class AuthController {
     try {
       const { refreshToken } = request.headers;
 
-      // Find user and clear refresh token
-      await UserModel.findOneAndUpdate(
-        { 'authentication.refreshToken': refreshToken },
-        { $unset: { 'authentication.refreshToken': 1 } }
-      );
+      if (!refreshToken) {
+        return ResponseHelper.sendBadRequest(reply, 'Refresh token is required');
+      }
+
+      // Find and delete the device record
+      const device = await DeviceModel.findOne({ refreshToken, isActive: true });
+      
+      if (device) {
+        await device.revoke(); // This deletes the device record
+      }
 
       return ResponseHelper.sendSuccess(reply, undefined, 'Logged out successfully');
     } catch (error) {
@@ -373,12 +433,14 @@ export class AuthController {
       const saltRounds = 12;
       const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-      // Update password and clear any existing refresh tokens
+      // Update password and revoke all devices
       user.passwordHash = hashedPassword;
-      user.authentication.refreshToken = undefined;
       user.authentication.loginAttempts = 0;
       user.authentication.lockedUntil = undefined;
       await user.save();
+
+      // Revoke all devices for security
+      await DeviceModel.deleteMany({ userId: user._id });
 
       return ResponseHelper.sendSuccess(reply, undefined, 'Password reset successfully');
     } catch (error) {
